@@ -334,59 +334,59 @@ class TaskManager {
       window.inlistedApp.showNotification("沒有待辦任務", "目前沒有需要排程的任務。");
       return;
     }
-
+    
     this.showLoader();
 
     try {
-      const response = await fetch('http://localhost:8000/schedule', {
+      // 1. 呼叫新的 API 端點
+      const response = await fetch('http://localhost:8000/schedule-and-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(tasksToSchedule),
       });
 
-      const result = await response.json();
+      // 2. 接收完整的、已排序的任務列表
+      const syncedTasks = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.detail || '排程時發生未知錯誤');
+        // .detail 是 FastAPI 錯誤的標準欄位
+        throw new Error(syncedTasks.detail || '排程時發生未知錯誤');
       }
       
-      // 根據回傳結果顯示對應畫面
-      if (result.failed.length === 0) {
-        // 全部成功
-        const successContent = `
-            <div class="icon success"><i class="fas fa-check-circle"></i></div>
-            <h2>排程成功！</h2>
-            <p>所有 ${result.successful.length} 個任務都已成功排入您的行事曆。</p>
+      // 3. 直接用後端回傳的列表覆蓋前端的任務列表
+      // 注意：後端回傳的格式可能和前端稍有不同，我們在這裡進行對應
+      this.tasks = syncedTasks.map(task => ({
+          id: task.id, // 使用 Google Calendar Event ID
+          name: task.name,
+          deadline: task.deadline,
+          priority: task.priority,
+          duration: task.duration,
+          completed: task.completed,
+          createdAt: task.createdAt
+      }));
+
+      // 4. 保存並重新渲染
+      this.saveTasks();
+      this.renderTasks();
+      
+      // 5. 顯示成功畫面
+      const successContent = `
+            <div class="icon success"><i class="fas fa-sync-alt"></i></div>
+            <h2>同步成功！</h2>
+            <p>您的待辦事項列表已和 Google Calendar 完全同步。</p>
         `;
-        this.showResultModal(successContent);
-      } else {
-        // 部分或全部失敗
-        let failedListItems = result.failed.map(task => 
-            `<li><strong>${task.name}</strong>: ${task.reason}</li>`
-        ).join('');
-        
-        const warningContent = `
-            <div class="icon warning"><i class="fas fa-exclamation-triangle"></i></div>
-            <h2>排程完成，但有部分問題</h2>
-            <p><strong>${result.successful.length}</strong> 個任務成功, <strong>${result.failed.length}</strong> 個任務失敗。</p>
-            <p>以下是失敗的任務列表：</p>
-            <ul>${failedListItems}</ul>
-        `;
-        this.showResultModal(warningContent);
-      }
+      this.showResultModal(successContent);
 
     } catch (error) {
-      console.error('Error scheduling tasks:', error);
-      // 嚴重錯誤，例如 API 連線失敗
+      console.error('Error scheduling and syncing:', error);
       const errorContent = `
             <div class="icon warning"><i class="fas fa-times-circle" style="color: #dc3545;"></i></div>
-            <h2>排程失敗</h2>
-            <p>無法連接到排程服務，請檢查後端伺服器是否正在運行。</p>
+            <h2>同步失敗</h2>
+            <p>無法完成排程與同步，請檢查後端伺-服器是否正在運行。</p>
             <p><small>${error.message}</small></p>
       `;
       this.showResultModal(errorContent);
     } finally {
-      // 2. 無論成功或失敗，最後都要隱藏載入動畫
       this.hideLoader();
     }
   }

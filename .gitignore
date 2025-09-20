@@ -151,3 +151,5 @@ __pycache__/
 
 scheduler/token.json
 scheduler/credentials.json
+
+__pycache__
