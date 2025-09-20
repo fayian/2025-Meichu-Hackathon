@@ -6,6 +6,15 @@ from playsound import playsound
 import os
 import math
 from collections import deque
+try:
+    import torch
+    TORCH_OK = True
+except Exception:
+    TORCH_OK = False
+
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 
 class PosturePomodoroModel:
     def __init__(self, config=None):
@@ -29,7 +38,23 @@ class PosturePomodoroModel:
 
             # Visual preferences
             "SHOW_POSE_IN_BREAK": False,      # <<< Hide skeleton/angles in break mode (still detect)
-            "DIM_BACKGROUND_ON_BREAK": True  # Dim screen behind the break banner
+            "DIM_BACKGROUND_ON_BREAK": True,  # Dim screen behind the break banner
+
+            "YOLO_ENABLED": TORCH_OK,                  # auto-disabled if torch missing
+            "YOLO_MODEL_NAME": 'yolov5m',               # stronger than 's' (better recall)
+            "YOLO_CONF": 0.20,                          # more sensitive
+            "YOLO_IOU": 0.45,
+            "YOLO_IMG_SIZE": 896,                       # better for small bottles (must be multiple of 32)
+            "YOLO_CLASSES": ['bottle', 'cup'],          # classes considered as drink containers
+            "YOLO_INTERVAL_SEC": 1.0,                   # run YOLO roughly every 3 seconds
+            "YOLO_IN_FOCUS_ONLY": False,                # set True to skip YOLO during break
+            "DRAW_YOLO_BOX": True,                       # show the detected container box
+
+            # Proximity heuristic: bottle/cup near the mouth
+            "DRINK_DIST_SCALE": 0.60,                   # threshold = scale * face_width_px
+            "DRINK_MIN_FRAMES": 3,                      # need this many consecutive frames near mouth
+            "DRINK_COOLDOWN_SEC": 3,                   # min seconds between drink events
+            "HYDRATION_BANNER_SEC": 2.5                  # banner duration after detection
         }
 
         # MediaPipe
@@ -67,6 +92,14 @@ class PosturePomodoroModel:
         self.do_posture_test = False
         self.do_drinking_test = False
         self.last_drink_time = time.localtime(time.time())
+
+        self.yolo_model = self.load_yolov5()
+        # YOLO drinking detection state
+        self.last_yolo_time = 0.0
+        self.last_yolo_det = []           # cached boxes between runs
+        self.drink_consec = 0
+        self.drink_banner_until = 0
+        self.hydration_count = 0          # number of detected drinks
 
     def calculate_angle(self, a, b, c):
         a = np.array(a, dtype=np.float32)
@@ -128,17 +161,145 @@ class PosturePomodoroModel:
     def is_still(self):
         return self.avg_speed_px_per_sec() < self.config["STILL_SPEED_THRESH"]
     
+
+    def clamp(self, v, lo, hi):
+        return max(lo, min(hi, v))
+
+    def head_roi_from_pose(self, l_ear, r_ear, l_sh, r_sh, W, H, pad_scale=1.6, up_pad=1.1):
+        """
+        Rectangle covering head/neck/upper chest to help detect small/tilted bottles.
+        """
+        if None in (l_ear, r_ear, l_sh, r_sh):
+            return (0, 0, W, H)
+
+        ear_cx = (l_ear[0] + r_ear[0]) / 2.0
+        ear_cy = (l_ear[1] + r_ear[1]) / 2.0
+        ear_dist = max(20.0, math.hypot(r_ear[0] - l_ear[0], r_ear[1] - l_ear[1]))
+
+        w = ear_dist * pad_scale * 1.6
+        h_up = ear_dist * up_pad
+        sh_y = min(l_sh[1], r_sh[1])
+        h_down = max(ear_dist * 2.0, (sh_y - ear_cy) * 1.2)
+
+        x1 = int(self.clamp(ear_cx - w / 2, 0, W - 1))
+        x2 = int(self.clamp(ear_cx + w / 2, 0, W - 1))
+        y1 = int(self.clamp(ear_cy - h_up, 0, H - 1))
+        y2 = int(self.clamp(ear_cy + h_down, 0, H - 1))
+        return x1, y1, x2, y2
+    
+    def point_to_rect_distance(self, px, py, x1, y1, x2, y2):
+        """Shortest Euclidean distance from point to rectangle (x1,y1,x2,y2)."""
+        cx = self.clamp(px, x1, x2)
+        cy = self.clamp(py, y1, y2)
+        return math.hypot(px - cx, py - cy)
+
+    def load_yolov5(self):
+        if not self.config["YOLO_ENABLED"]:
+            # print("YOLO is not enabled !!!!!!!!!!!!!!!!!.")
+            return None
+        # else:
+            # print("YOLO is enabled ++++++++++++++++++++.")
+        try:
+            # Torch hub online
+            model = torch.hub.load('ultralytics/yolov5', self.config["YOLO_MODEL_NAME"], pretrained=True)
+            # print("YOLO model loaded successfully.")
+        except Exception:
+            # Local fallback: clone repo to ./yolov5 and place yolov5m.pt in working directory
+            model = torch.hub.load('yolov5', 'custom', path=f'{self.config["YOLO_MODEL_NAME"]}.pt', source='local')
+        model.conf = self.config["YOLO_CONF"]
+        model.iou  = self.config["YOLO_IOU"]
+        if torch.cuda.is_available():
+            model.to('cuda')
+        return model
+    
+    def run_yolo_on_image(self, model, img_bgr, size):
+        """Return [(x1,y1,x2,y2,name,conf), ...]"""
+        if model is None:
+            return []
+        with torch.no_grad():
+            res = model(img_bgr, size=size)
+        boxes = []
+        try:
+            df = res.pandas().xyxy[0]
+            df = df[df['name'].isin(self.config["YOLO_CLASSES"]) & (df['confidence'] >= self.config["YOLO_CONF"])]
+            for _, row in df.iterrows():
+                boxes.append((int(row['xmin']), int(row['ymin']), int(row['xmax']), int(row['ymax']),
+                            row['name'], float(row['confidence'])))
+        except Exception:
+            arr = res.xyxy[0].cpu().numpy()  # [x1,y1,x2,y2,conf,cls]
+            names = model.names
+            for x1, y1, x2, y2, conf, cls_id in arr:
+                name = names[int(cls_id)]
+                if name in self.config["YOLO_CLASSES"] and conf >= self.config["YOLO_CONF"]:
+                    boxes.append((int(x1), int(y1), int(x2), int(y2), name, float(conf)))
+        
+        # print(f"Detected {len(boxes)} objects with YOLO")
+
+        return boxes
+
     def get_posture_status(self):
         return self.posture_status
     
-    def drinking_water_test(self, left_shoulder, right_shoulder, left_wrist, right_wrist):
-        if left_wrist.y < left_shoulder.y and left_wrist.x > left_shoulder.x:
-            self.last_drink_time = time.localtime(time.time())
-            print("Detected drinking with left hand.")       
+    def drinking_water_test(self):
+        # Ensure YOLO is run frequently
+        self.full_boxes = self.run_yolo_on_image(self.yolo_model, self.frame, self.config["YOLO_IMG_SIZE"])
+        self.roi_boxes_global = []
 
-        if right_wrist.y < right_shoulder.y and right_wrist.x < right_shoulder.x:
+        if self.pose_ok:
+            lm = self.results.pose_landmarks.landmark
+            l_sh = (int(lm[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x * self.W),
+                    int(lm[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y * self.H))
+            r_sh = (int(lm[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x * self.W),
+                    int(lm[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y * self.H))
+            l_ear = (int(lm[self.mp_pose.PoseLandmark.LEFT_EAR.value].x * self.W),
+                    int(lm[self.mp_pose.PoseLandmark.LEFT_EAR.value].y * self.H))
+            r_ear = (int(lm[self.mp_pose.PoseLandmark.RIGHT_EAR.value].x * self.W),
+                    int(lm[self.mp_pose.PoseLandmark.RIGHT_EAR.value].y * self.H))
+
+            # Detect head region for better water detection
+            rx1, ry1, rx2, ry2 = self.head_roi_from_pose(l_ear, r_ear, l_sh, r_sh, self.W, self.H)
+            self.roi = self.frame[ry1:ry2, rx1:rx2]
+
+            if self.roi.size > 0:
+                self.roi_boxes = self.run_yolo_on_image(self.yolo_model, self.roi, self.config["YOLO_IMG_SIZE"])
+                for x1, y1, x2, y2, name, conf in self.roi_boxes:
+                    self.roi_boxes_global.append((x1 + rx1, y1 + ry1, x2 + rx1, y2 + ry1, name, conf))
+
+        self.bottle_boxes = self.full_boxes + self.roi_boxes_global
+
+        self.chosen_box = None
+        if self.results.pose_landmarks is not None:
+            landmarks = self.results.pose_landmarks.landmark
+            # Mouth detection
+            l_mouth = (int(landmarks[self.mp_pose.PoseLandmark.MOUTH_LEFT.value].x * self.W),
+                    int(landmarks[self.mp_pose.PoseLandmark.MOUTH_LEFT.value].y * self.H))
+            r_mouth = (int(landmarks[self.mp_pose.PoseLandmark.MOUTH_RIGHT.value].x * self.W),
+                    int(landmarks[self.mp_pose.PoseLandmark.MOUTH_RIGHT.value].y * self.H))
+            mouth_center = ((l_mouth[0] + r_mouth[0]) // 2, (l_mouth[1] + r_mouth[1]) // 2)
+
+            face_width_px = max(1.0, math.hypot(r_mouth[0] - l_mouth[0], r_mouth[1] - l_mouth[1]))
+
+            prox_thresh = max(30.0, self.config["DRINK_DIST_SCALE"] * face_width_px)
+            best_d = 1e9
+            for (x1, y1, x2, y2, name, conf) in self.bottle_boxes:
+                d = self.point_to_rect_distance(mouth_center[0], mouth_center[1], x1, y1, x2, y2)
+                near_vert = (y1 <= mouth_center[1] + 0.35 * face_width_px)
+                if d < best_d and d <= prox_thresh and near_vert:
+                    best_d = d
+                    self.chosen_box = (x1, y1, x2, y2, name, conf)
+
+            if self.chosen_box is not None:
+                self.drink_consec += 1
+            else:
+                self.drink_consec = max(0, self.drink_consec - 2)
+
+        if self.chosen_box is not None and (self.drink_consec >= self.config["DRINK_MIN_FRAMES"]) and ((time.time() - time.mktime(self.last_drink_time)) >= self.config["DRINK_COOLDOWN_SEC"]):
+            # print("Hydration: drink detected!")
             self.last_drink_time = time.localtime(time.time())
-            print("Detected drinking with right hand.")
+            self.drink_banner_until = time.time() + self.config["HYDRATION_BANNER_SEC"]
+            print("Hydration: drink detected!")
+
+        
     
     def posture_test(self, shoulder_angle, neck_angle):
         if shoulder_angle < self.shoulder_threshold or neck_angle < self.neck_threshold:
@@ -172,23 +333,23 @@ class PosturePomodoroModel:
             if not ret:
                 continue
 
-            frame = cv2.flip(frame, 1)
-            H, W = frame.shape[:2]
+            self.frame = cv2.flip(frame, 1)
+            self.H, self.W = self.frame.shape[:2]
             now = time.time()
 
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.pose.process(rgb_frame)
-            pose_ok = results.pose_landmarks is not None
+            rgb_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+            self.results = self.pose.process(rgb_frame)
+            self.pose_ok = self.results.pose_landmarks is not None
 
             # Extract landmarks (even in break mode, to keep detecting)
-            if pose_ok:
-                landmarks = results.pose_landmarks.landmark
-                l_sh = (int(landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x * W),
-                        int(landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y * H))
-                r_sh = (int(landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x * W),
-                        int(landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y * H))
-                l_ear = (int(landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].x * W),
-                        int(landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].y * H))
+            if self.pose_ok:
+                landmarks = self.results.pose_landmarks.landmark
+                l_sh = (int(landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x * self.W),
+                        int(landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y * self.H))
+                r_sh = (int(landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x * self.W),
+                        int(landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y * self.H))
+                l_ear = (int(landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].x * self.W),
+                        int(landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].y * self.H))
 
                 centroid = ((l_sh[0] + r_sh[0]) // 2, (l_sh[1] + r_sh[1]) // 2)
                 self.add_centroid(centroid, now)
@@ -211,222 +372,7 @@ class PosturePomodoroModel:
                 if self.do_posture_test:
                     self.posture_test(shoulder_angle, neck_angle)
                 if self.do_drinking_test:
-                    self.drinking_water_test(left_shoulder=landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value],
-                                    right_shoulder=landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
-                                    left_wrist=landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value],
-                                    right_wrist=landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value])
+                    self.drinking_water_test()
 
         print("Exiting run loop ~~~~~~~~~~~~~~~~~~~.")
-            
-
-    '''
-    def run(self):
-        while self.cap.isOpened() and not self.stop_detection:
-            ret, frame = self.cap.read()
-            if not ret:
-                continue
-
-            frame = cv2.flip(frame, 1)
-            H, W = frame.shape[:2]
-            now = time.time()
-
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.pose.process(rgb_frame)
-            pose_ok = results.pose_landmarks is not None
-
-            # Extract landmarks (even in break mode, to keep detecting)
-            if pose_ok:
-                landmarks = results.pose_landmarks.landmark
-                l_sh = (int(landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x * W),
-                        int(landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y * H))
-                r_sh = (int(landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x * W),
-                        int(landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y * H))
-                l_ear = (int(landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].x * W),
-                        int(landmarks[self.mp_pose.PoseLandmark.LEFT_EAR.value].y * H))
-
-                centroid = ((l_sh[0] + r_sh[0]) // 2, (l_sh[1] + r_sh[1]) // 2)
-                self.add_centroid(centroid, now)
-
-                shoulder_angle = self.calculate_angle(l_sh, r_sh, (r_sh[0], 0))
-                neck_angle = self.calculate_angle(l_ear, l_sh, (l_sh[0], 0))
-
-                # Calibration
-                if not self.is_calibrated and self.calibration_frames < 30:
-                    self.calibration_shoulder_angles.append(shoulder_angle)
-                    self.calibration_neck_angles.append(neck_angle)
-                    self.calibration_frames += 1
-                    if self.mode == "focus":  # show text only in focus to reduce clutter
-                        cv2.putText(frame, f"Calibrating... {self.calibration_frames}/30", (10, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2, cv2.LINE_AA)
-                elif not self.is_calibrated:
-                    self.shoulder_threshold = float(np.mean(self.calibration_shoulder_angles) - 10.0)
-                    self.neck_threshold = float(np.mean(self.calibration_neck_angles) - 10.0)
-                    self.is_calibrated = True
-                    print(f"Calibration complete. Shoulder threshold: {self.shoulder_threshold:.1f}, Neck threshold: {self.neck_threshold:.1f}")
-
-                if self.mode == "focus":
-                    self.mp_drawing.draw_landmarks(frame, results.pose_landmarks, self.mp_pose.POSE_CONNECTIONS)
-                    mid = ((l_sh[0] + r_sh[0]) // 2, (l_sh[1] + r_sh[1]) // 2)
-                    self.draw_angle(frame, l_sh, mid, (mid[0], 0), shoulder_angle, (255, 0, 0))
-                    self.draw_angle(frame, l_ear, l_sh, (l_sh[0], 0), neck_angle, (0, 255, 0))
-
-                    # Posture feedback (focus mode only)
-                    if self.is_calibrated:
-                        if shoulder_angle < self.shoulder_threshold or neck_angle < self.neck_threshold:
-                            status = "Poor Posture"
-                            self.posture_status = status
-                            color = (0, 0, 255)
-                            if now - self.last_posture_alert_time > self.config["POSTURE_ALERT_COOLDOWN"]:
-                                print("Poor posture detected! Please sit up straight.")
-                                self.play_beep()
-                                self.last_posture_alert_time = now
-                        else:
-                            status = "Good Posture"
-                            self.posture_status = status
-                            color = (0, 255, 0)
-                        cv2.putText(frame, status, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2, cv2.LINE_AA)
-                        cv2.putText(frame, f"Shoulder: {shoulder_angle:.1f}/{self.shoulder_threshold:.1f}", (10, 60),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 1, cv2.LINE_AA)
-                        cv2.putText(frame, f"Neck: {neck_angle:.1f}/{self.neck_threshold:.1f}", (10, 90),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 1, cv2.LINE_AA)
-
-                self.last_seen_time = now
-
-                # print("test drinking water .......")
-                self.is_drinking_water(left_shoulder=landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value],
-                                    right_shoulder=landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
-                                    left_wrist=landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value],
-                                    right_wrist=landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value])
-
-                if self.mode == "focus":
-                    # Consider "sitting/focusing" when relatively still
-                    if self.is_still():
-                        if self.sit_timer_start is None:
-                            self.sit_timer_start = now
-                            self.last_centroid_for_standup = centroid
-                        elapsed = now - self.sit_timer_start
-                        remaining = self.pomodoro_seconds - elapsed
-
-                        # Focus timer (top-right)
-                        cv2.putText(frame, f"Focus: {self.format_mmss(remaining)}", (W - 220, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (139,0,139), 2, cv2.LINE_AA)
-
-                        # Hydration reminder (placed below "Focus")
-                        hydrate_elapsed = now - self.hydrate_timer_start
-                        hydrate_remaining = self.hydrate_seconds - hydrate_elapsed
-                        if hydrate_remaining > 0:
-                            cv2.putText(frame, f"Hydrate: {self.format_mmss(hydrate_remaining)}",
-                                        (W - 220, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, self.config["BABY_BLUE_BGR"], 2, cv2.LINE_AA)
-                        else:
-                            # Alert to drink water
-                            cv2.putText(frame, "Hydrate now! (press [h] after drinking)",
-                                        (W - 420, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, self.config["BABY_BLUE_BGR"], 2, cv2.LINE_AA)
-                            if now - self.last_hydrate_alert_time > self.config["HYDRATE_ALERT_COOLDOWN"]:
-                                print("Hydration reminder: Please drink some water.")
-                                self.play_beep()
-                                self.last_hydrate_alert_time = now
-
-                        # Reached focus target → start break
-                        if elapsed >= self.pomodoro_seconds:
-                            self.mode = "break"
-                            self.break_timer_start = now
-                            self.sit_timer_start = None
-                            self.last_centroid_for_standup = None
-                            print(f"Pomodoro up! {self.config['POMODORO_MINUTES']} min reached. Break starts ({self.config['BREAK_MINUTES']} min).")
-                            self.play_beep()
-                    else:
-                        # Movement in focus → reset if continuous focus required
-                        if self.config["REQUIRE_CONTINUOUS_SIT"] and self.sit_timer_start is not None:
-                            if self.last_centroid_for_standup is not None:
-                                disp = math.hypot(centroid[0]-self.last_centroid_for_standup[0],
-                                                centroid[1]-self.last_centroid_for_standup[1])
-                                if disp > self.config["STANDUP_MOVE_THRESH"]:
-                                    self.sit_timer_start = None
-                                    self.last_centroid_for_standup = None
-                            else:
-                                self.sit_timer_start = None
-
-                elif self.mode == "break":
-                    # Live break countdown
-                    if break_timer_start is None:
-                        break_timer_start = now
-                    break_elapsed = now - break_timer_start
-                    break_remaining = self.break_seconds - break_elapsed
-
-                    if self.config["DIM_BACKGROUND_ON_BREAK"]:
-                        self.draw_dim_overlay(frame, alpha=0.35)
-
-                    # Centered break UI
-                    self.draw_centered_text(frame, f"BREAK: {self.format_mmss(break_remaining)}",
-                                    int(H*0.45), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 0, 255), 3)
-                    self.draw_centered_text(frame, "Stand, stretch, move around!",
-                                    int(H*0.55), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
-                    if self.is_still():
-                        self.draw_centered_text(frame, "Tip: try walking or stretching",
-                                        int(H*0.63), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-
-                    # When break finishes, auto-ready to resume focus
-                    if break_remaining <= 0:
-                        self.draw_centered_text(frame, "Break over! Press [n] or sit to resume.",
-                                        int(H*0.72), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 0), 2)
-                        if pose_ok and self.is_still():
-                            mode = "focus"
-                            sit_timer_start = now
-                            break_timer_start = None
-                            self.centroid_history.clear()
-                            self.last_centroid_for_standup = None
-                            print("Resuming focus.")
-                            self.play_beep()
-
-            else:
-                # No pose detected
-                if self.last_seen_time is not None and (now - self.last_seen_time) > self.config["ABSENCE_RESET_SEC"] and self.mode == "focus":
-                    self.sit_timer_start = None
-                    self.last_centroid_for_standup = None
-                cv2.putText(frame, "No person detected", (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (200, 200, 200), 2, cv2.LINE_AA)
-
-                # Keep break countdown even if you step away
-                if self.mode == "break":
-                    if break_timer_start is None:
-                        break_timer_start = now
-                    break_elapsed = now - break_timer_start
-                    break_remaining = self.break_seconds - break_elapsed
-                    if self.config["DIM_BACKGROUND_ON_BREAK"]:
-                        self.draw_dim_overlay(frame, alpha=0.35)
-                    self.draw_centered_text(frame, f"BREAK: {self.format_mmss(break_remaining)}",
-                                    int(H*0.45), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 0, 255), 3)
-
-            # Footer / hotkeys
-            footer = ("Mode: {mode} | Focus: {fm}m  Break: {bm}m  Hydrate: {hm}m   "
-                    "[r]=reset focus   [h]=mark water   [n]=end break now   [q]=quit").format(
-                mode=self.mode.upper(), fm=self.config["POMODORO_MINUTES"], bm=self.config["BREAK_MINUTES"], hm=self.config["HYDRATE_EVERY_MINUTES"]
-            )
-            cv2.putText(frame, footer, (10, H-10), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180,255,180), 1, cv2.LINE_AA)
-
-            # Render
-            # cv2.imshow('Posture + Pomodoro', frame)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                break
-            elif key == ord('r'):
-                # Reset focus timer (only meaningful in focus mode)
-                self.sit_timer_start = None
-                self.centroid_history.clear()
-                self.last_centroid_for_standup = None
-                print("Focus timer reset.")
-            elif key == ord('n'):
-                # End break immediately and resume focus
-                if self.mode == "break":
-                    self.mode = "focus"
-                    self.sit_timer_start = time.time()
-                    self.break_timer_start = None
-                    self.centroid_history.clear()
-                    self.last_centroid_for_standup = None
-                    print("Break ended manually. Resuming focus.")
-                    self.play_beep()
-            elif key == ord('h'):
-                # Mark that you drank water (reset hydration timer)
-                self.hydrate_timer_start = time.time()
-                print("Hydration timer reset. Stay hydrated!")
-    '''
+ 
