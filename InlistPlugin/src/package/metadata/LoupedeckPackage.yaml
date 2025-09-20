@@ -6,13 +6,13 @@
 type: plugin4
 
 # Name that identifies the plugin.
-name: Inlist
+name: Inlisted
 
 # Plugin name that is shown to the user.
-displayName: Inlist
+displayName: Inlisted
 
 # Short description of the plugin.
-description: Add a short description of the plugin here.
+description: Shortcut actions for the Inlisted app.
 
 # Name of the plugin library file.
 pluginFileName: InlistPlugin.dll
