@@ -261,7 +261,7 @@
                   <div class="detection-status inactive" id="postureDetectionStatus">未檢測</div>
                 </div>
                 <div class="feature-description">
-                  <p>使用 AI 視覺檢測技術，即時監控您的坐姿狀態</p>
+                  <p>使用 AI 視覺檢測技術，每5秒監控您的坐姿，連續2次不良姿勢將發出警告 (10秒內)</p>
                 </div>
                 <div class="ai-controls">
                   <button class="btn btn-success" id="startPostureDetectionBtn">
@@ -270,9 +270,6 @@
                   <button class="btn btn-danger" id="stopPostureDetectionBtn">
                     <i class="fas fa-stop"></i> 停止檢測
                   </button>
-                  <button class="btn btn-info" id="checkPostureBtn">
-                    <i class="fas fa-search"></i> 檢查姿勢
-                  </button>
                 </div>
                 <div class="posture-result">
                   <span>目前姿勢狀態：</span>
@@ -280,61 +277,14 @@
                 </div>
               </div>
 
-              <!-- 智能喝水檢測 -->
+              <!-- 智能喝水提醒 -->
               <div class="health-feature ai-detection">
                 <div class="feature-header">
-                  <h3>💧 智能喝水檢測</h3>
-                  <div class="detection-status inactive" id="drinkingDetectionStatus">未檢測</div>
+                  <h3>💧 智能喝水提醒</h3>
+                  <div class="detection-status inactive" id="waterReminderStatus">未提醒</div>
                 </div>
                 <div class="feature-description">
-                  <p>自動檢測您的喝水行為，幫助維持良好的水分攝取習慣</p>
-                </div>
-                <div class="ai-controls">
-                  <button class="btn btn-success" id="startDrinkingDetectionBtn">
-                    <i class="fas fa-play"></i> 開始檢測
-                  </button>
-                  <button class="btn btn-danger" id="stopDrinkingDetectionBtn">
-                    <i class="fas fa-stop"></i> 停止檢測
-                  </button>
-                  <button class="btn btn-info" id="checkLastDrinkBtn">
-                    <i class="fas fa-clock"></i> 上次喝水時間
-                  </button>
-                </div>
-                <div class="drink-result">
-                  <span>上次喝水時間：</span>
-                  <span class="last-drink-time" id="lastDrinkTime">未記錄</span>
-                </div>
-              </div>
-
-              <!-- 傳統提醒功能 -->
-              <div class="health-feature">
-                <div class="feature-header">
-                  <h3>⏰ 坐姿提醒</h3>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="postureToggle" />
-                    <span class="slider"></span>
-                  </label>
-                </div>
-                <div class="feature-settings">
-                  <label>檢查間隔 (分鐘):</label>
-                  <input
-                    type="number"
-                    id="postureInterval"
-                    min="5"
-                    max="120"
-                    value="30"
-                  />
-                </div>
-                <div class="feature-status" id="postureStatus">未啟用</div>
-              </div>
-
-              <div class="health-feature">
-                <div class="feature-header">
-                  <h3>💧 喝水提醒</h3>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="waterToggle" />
-                    <span class="slider"></span>
-                  </label>
+                  <p>每分鐘檢查您的喝水時間，超過設定間隔將自動提醒您補充水分</p>
                 </div>
                 <div class="feature-settings">
                   <label>提醒間隔 (分鐘):</label>
@@ -346,8 +296,21 @@
                     value="60"
                   />
                 </div>
-                <div class="feature-status" id="waterStatus">未啟用</div>
+                <div class="ai-controls">
+                  <button class="btn btn-success" id="startWaterReminderBtn">
+                    <i class="fas fa-play"></i> 開始提醒
+                  </button>
+                  <button class="btn btn-danger" id="stopWaterReminderBtn">
+                    <i class="fas fa-stop"></i> 停止提醒
+                  </button>
+                </div>
+                <div class="drink-result">
+                  <span>上次喝水時間：</span>
+                  <span class="last-drink-time" id="lastDrinkTime">未記錄</span>
+                </div>
               </div>
+
+
 
               <div class="water-tracker">
                 <h3>今日飲水記錄</h3>
