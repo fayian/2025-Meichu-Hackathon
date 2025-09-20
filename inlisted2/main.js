@@ -5,6 +5,7 @@ const Store = require("electron-store");
 
 let mainWindow;
 let wsServer;
+let websocket;
 let aiStore;
 let newTaskPopup;
 
@@ -19,6 +20,7 @@ function initializeWebSocketServer() {
   });
 
   wsServer.on("connection", (ws) => {
+    websocket = ws;
     ws.on("error", (err) => {
       console.error("WebSocket error:", err);
     });
@@ -119,6 +121,11 @@ app.on("activate", () => {
   }
 });
 
+// IPC handlers
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
+});
+
 // IPC handlers for AI state persistence
 ipcMain.handle("save-ai-state", (event, state) => {
   try {
@@ -164,9 +171,25 @@ ipcMain.handle("clear-ai-state", () => {
   }
 });
 
-// IPC handlers
-ipcMain.handle("get-app-version", () => {
-  return app.getVersion();
+// IPC handlers for sending pomodoro status
+ipcMain.handle("pomodoro-start", (event, seconds) => {
+  websocket.send(
+    JSON.stringify({ command: "pomodoro-start", data: { seconds: seconds } })
+  );
+});
+
+ipcMain.handle("pomodoro-pause", () => {
+  websocket.send(JSON.stringify({ command: "pomodoro-pause", data: {} }));
+});
+
+ipcMain.handle("pomodoro-stop", () => {
+  websocket.send(JSON.stringify({ command: "pomodoro-stop", data: {} }));
+});
+
+ipcMain.handle("pomodoro-set-time", (event, seconds) => {
+  websocket.send(
+    JSON.stringify({ command: "pomodoro-set-time", data: { seconds: seconds } })
+  );
 });
 
 // Create new task popup window
@@ -201,7 +224,6 @@ function createNewTaskPopup(taskData = {}) {
     resizable: false,
     center: true,
     frame: false,
-    //alwaysOnTop: true, // Keep popup on top without affecting main window
     focusable: true, // Ensure popup can receive focus
     skipTaskbar: true,
     webPreferences: {
@@ -225,7 +247,6 @@ function createNewTaskPopup(taskData = {}) {
 
   // Close popup when clicking outside or pressing Escape
   newTaskPopup.on("blur", () => {
-    console.log("fuck");
     newTaskPopup.close();
   });
 
@@ -235,7 +256,6 @@ function createNewTaskPopup(taskData = {}) {
   });
 
   newTaskPopup.on("focus", () => {
-    console.log("Focused");
     newTaskPopup.moveTop();
     newTaskPopup.show();
   });
@@ -245,18 +265,8 @@ function createNewTaskPopup(taskData = {}) {
     setTimeout(() => {
       newTaskPopup.show();
       newTaskPopup.focus();
-      logFocus();
     }, 100);
   });
 
   return { success: true, windowId: newTaskPopup.id };
-}
-
-function logFocus() {
-  if (newTaskPopup && !newTaskPopup.isDestroyed()) {
-    console.log(newTaskPopup.isFocused());
-    setTimeout(() => {
-      logFocus();
-    }, 2000);
-  }
 }

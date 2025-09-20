@@ -26,8 +26,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   loadAIState: () => ipcRenderer.invoke("load-ai-state"),
   clearAIState: () => ipcRenderer.invoke("clear-ai-state"),
 
-  // WebSocket Server Control APIs
-  websocket: {},
+  // pomodoro controls
+  startPomodoro: (seconds) => ipcRenderer.invoke("pomodoro-start", seconds),
+  pausePomodoro: () => ipcRenderer.invoke("pomodoro-pause"),
+  stopPomodoro: () => ipcRenderer.invoke("pomodoro-stop"),
+  setPomodoroTime: (seconds) =>
+    ipcRenderer.invoke("pomodoro-set-time", seconds),
 
   // Notification API for health reminders and pomodoro
   showNotification: (title, body) => {

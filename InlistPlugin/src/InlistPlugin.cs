@@ -2,7 +2,9 @@ namespace Loupedeck.InlistPlugin
 {
     using System;
     using System.Threading.Tasks;
+    using System.Text.Json;
     using Loupedeck.InlistPlugin.Services;
+    using Loupedeck.InlistPlugin.Actions;
 
     // This class contains the plugin-level logic of the Loupedeck plugin.
 
@@ -33,6 +35,7 @@ namespace Loupedeck.InlistPlugin
 
         // This method is called when the plugin is loaded.
         public override void Load() {
+           
         }
 
         // This method is called when the plugin is unloaded.
@@ -78,15 +81,43 @@ namespace Loupedeck.InlistPlugin
                 // This is where you would implement your specific message handling logic
                 PluginLog.Verbose($"Processing message: {message}");
 
-                // Example: Parse JSON messages
-                // var messageData = System.Text.Json.JsonSerializer.Deserialize<YourMessageType>(message);
-                // Process the message data...
-            }
-            catch (Exception ex) {
+                // Parse JSON messages
+                var messageData = JsonSerializer.Deserialize<JsonElement>(message);
+                
+                if (messageData.TryGetProperty("command", out var commandProperty)) {
+                    var command = commandProperty.GetString();
+                    var data = messageData.TryGetProperty("data", out var dataProperty) ? dataProperty : new JsonElement();
+
+                    // Handle pomodoro commands
+                    if (command.StartsWith("pomodoro-")) {
+                        HandlePomodoroCommand(command, data);
+                    } else {
+                        PluginLog.Info($"Received unhandled command: {command}");
+                    }
+                } else {
+                    PluginLog.Warning("Received message without command property");
+                }
+            } catch (JsonException ex) {
+                PluginLog.Error($"Error parsing JSON message: {ex.Message}");
+            } catch (Exception ex) {
                 PluginLog.Error($"Error handling WebSocket message: {ex.Message}");
             }
         }
-        
+
+        private void HandlePomodoroCommand(string command, JsonElement data) {
+            try {
+                // Forward pomodoro commands to the ShowPomodoroTimeCommand instance
+                var pomodoroCommand = ShowPomodoroTimeCommand.Instance;
+                if (pomodoroCommand != null) {
+                    pomodoroCommand.HandlePomodoroCommand(command, data);
+                } else {
+                    PluginLog.Warning("ShowPomodoroTimeCommand instance not found, cannot handle pomodoro command");
+                }
+            } catch (Exception ex) {
+                PluginLog.Error($"Error handling pomodoro command '{command}': {ex.Message}");
+            }
+        }
+
         // Helper method to send JSON data to the WebSocket server
         public async Task SendJsonToServerAsync<T>(T data) {
             try {
