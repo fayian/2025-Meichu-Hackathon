@@ -6,6 +6,7 @@ const Store = require("electron-store");
 let mainWindow;
 let wsServer;
 let aiStore;
+let newTaskPopup;
 
 // Initialize WebSocket server
 function initializeWebSocketServer() {
@@ -167,3 +168,95 @@ ipcMain.handle("clear-ai-state", () => {
 ipcMain.handle("get-app-version", () => {
   return app.getVersion();
 });
+
+// Create new task popup window
+ipcMain.handle("create-new-task-popup", async (event, taskData = {}) => {
+  return createNewTaskPopup(taskData);
+});
+
+// Handle task submission from popup
+ipcMain.handle("submit-new-task", async (event, taskData) => {
+  // Send the task data to the main window
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("task-submitted", taskData);
+  }
+
+  // Close the popup
+  if (newTaskPopup && !newTaskPopup.isDestroyed()) {
+    newTaskPopup.close();
+  }
+
+  return { success: true };
+});
+
+function createNewTaskPopup(taskData = {}) {
+  // Close existing popup if it exists
+  if (newTaskPopup && !newTaskPopup.isDestroyed()) {
+    newTaskPopup.close();
+  }
+
+  newTaskPopup = new BrowserWindow({
+    width: 450,
+    height: 450,
+    resizable: false,
+    center: true,
+    frame: false,
+    //alwaysOnTop: true, // Keep popup on top without affecting main window
+    focusable: true, // Ensure popup can receive focus
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+    show: false, // Don't show until ready
+  });
+
+  // Build URL with task data as query parameter
+  let popupUrl = `file://${path.join(__dirname, "templates", "new-task.html")}`;
+  if (taskData && Object.keys(taskData).length > 0) {
+    const encodedData = encodeURIComponent(JSON.stringify(taskData));
+    popupUrl += `?data=${encodedData}`;
+  }
+
+  // Load the HTML file
+  newTaskPopup.loadURL(popupUrl);
+
+  // Close popup when clicking outside or pressing Escape
+  newTaskPopup.on("blur", () => {
+    console.log("fuck");
+    newTaskPopup.close();
+  });
+
+  // Handle window closed
+  newTaskPopup.on("closed", () => {
+    newTaskPopup = null;
+  });
+
+  newTaskPopup.on("focus", () => {
+    console.log("Focused");
+    newTaskPopup.moveTop();
+    newTaskPopup.show();
+  });
+
+  // Show when ready
+  newTaskPopup.once("ready-to-show", () => {
+    setTimeout(() => {
+      newTaskPopup.show();
+      newTaskPopup.focus();
+      logFocus();
+    }, 100);
+  });
+
+  return { success: true, windowId: newTaskPopup.id };
+}
+
+function logFocus() {
+  if (newTaskPopup && !newTaskPopup.isDestroyed()) {
+    console.log(newTaskPopup.isFocused());
+    setTimeout(() => {
+      logFocus();
+    }, 2000);
+  }
+}
