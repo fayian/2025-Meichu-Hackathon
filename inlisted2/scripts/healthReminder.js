@@ -5,7 +5,7 @@ class HealthReminder {
         this.waterTimer = null;
         this.waterCount = parseInt(localStorage.getItem('daily-water-count')) || 0;
         this.lastWaterDate = localStorage.getItem('last-water-date') || '';
-        this.postureApiUrl = 'http://localhost:8002'; // posture API URL
+        this.postureApiUrl = 'http://127.0.0.1:8000'; // posture API URL
         this.isPostureApiConnected = false;
         this.isDrinkingApiConnected = false;
         this.init();
