@@ -25,6 +25,14 @@
                 </div>
             </div>
             <div class="header-right">
+                <div class="header-controls">
+                    <button class="action-btn secondary" id="audioSettingsBtn" title="音效設定">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
+                    <button class="action-btn secondary" id="helpBtn" title="說明與快捷鍵">
+                        <i class="fas fa-question-circle"></i>
+                    </button>
+                </div>
                 <div class="connection-status connected">
                     <div class="status-dot"></div>
                     <span>Console 已連接</span>
@@ -56,6 +64,7 @@
                     <div class="timer-container">
                         <div class="timer-circle">
                             <div class="timer-inner">
+                                <!-- SVG Circle for progress -->
                                 <div class="timer-time">25:00</div>
                                 <div class="timer-label">專注時間</div>
                             </div>
@@ -64,6 +73,7 @@
 
                     <div class="timer-controls">
                         <div class="timer-presets">
+                            <button class="preset-btn active" data-duration="1">1 分鐘</button>
                             <button class="preset-btn active" data-duration="25">25 分鐘</button>
                             <button class="preset-btn" data-duration="45">45 分鐘</button>
                             <button class="preset-btn" data-duration="60">1 小時</button>
@@ -352,6 +362,79 @@
                 <div class="modal-footer">
                     <button class="btn secondary" id="cancelTask">取消</button>
                     <button class="btn primary" id="saveTask">儲存</button>
+                </div>
+            </div>
+
+            <!-- Audio Settings Modal -->
+            <div class="modal" id="audioSettingsModal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-volume-up"></i> 音效設定</h3>
+                    <button class="modal-close" id="closeAudioModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="audioModalBody">
+                    <!-- Audio settings will be dynamically inserted here -->
+                </div>
+            </div>
+
+            <!-- Help Modal -->
+            <div class="modal" id="helpModal">
+                <div class="modal-header">
+                    <h3><i class="fas fa-question-circle"></i> 使用說明</h3>
+                    <button class="modal-close" id="closeHelpModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="help-section">
+                        <h4>🍅 番茄工作法</h4>
+                        <p>專注工作25分鐘，然後休息5分鐘。完成4個番茄鐘後，進行15-30分鐘的長休息。</p>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h4>⌨️ 快捷鍵</h4>
+                        <div class="shortcut-list">
+                            <div class="shortcut-item">
+                                <kbd>空白鍵</kbd>
+                                <span>開始/暫停計時器</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>Ctrl</kbd> + <kbd>R</kbd>
+                                <span>重設計時器</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>Ctrl</kbd> + <kbd>B</kbd>
+                                <span>開始休息</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>Ctrl</kbd> + <kbd>N</kbd>
+                                <span>新增任務</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>ESC</kbd>
+                                <span>關閉對話框</span>
+                            </div>
+                            <div class="shortcut-item">
+                                <kbd>Shift</kbd> + <kbd>?</kbd>
+                                <span>顯示此說明</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="help-section">
+                        <h4>🔊 音效通知</h4>
+                        <p>應用程式會在計時完成時播放提醒音效。您可以在音效設定中調整音量或關閉特定音效。</p>
+                    </div>
+
+                    <div class="help-section">
+                        <h4>🎯 專注模式</h4>
+                        <ul>
+                            <li><strong>輕度專注</strong>：允許少量分心，適合創意工作</li>
+                            <li><strong>中度專注</strong>：平衡的專注模式，適合大部分工作</li>
+                            <li><strong>深度專注</strong>：完全專注，適合複雜任務</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

@@ -420,6 +420,9 @@ function pauseFocusTimer() {
   
   updateConsoleStatus();
   showNotification('專注模式已暫停', 'warning');
+  
+  // 播放暫停音效
+  playSound('pause');
 }
 
 function resetFocusTimer() {
@@ -484,6 +487,107 @@ function hideAddTaskModal() {
     modalOverlay.classList.remove('active');
   }
 }
+
+// Audio Settings Modal Functions
+function showAudioSettingsModal() {
+  const modalOverlay = document.getElementById('modalOverlay');
+  const audioModal = document.getElementById('audioSettingsModal');
+  const audioModalBody = document.getElementById('audioModalBody');
+  
+  if (modalOverlay && audioModal && audioModalBody) {
+    // Hide other modals
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.style.display = 'none';
+    });
+    
+    // Show audio settings modal
+    audioModal.style.display = 'block';
+    modalOverlay.classList.add('active');
+    
+    // Initialize audio settings if available
+    if (window.audioSettings) {
+      const settingsPanel = window.audioSettings.createSettingsUI();
+      audioModalBody.innerHTML = '';
+      audioModalBody.appendChild(settingsPanel);
+      
+      // Add test buttons
+      const testSection = document.createElement('div');
+      testSection.className = 'test-section';
+      testSection.innerHTML = `
+        <div class="settings-section">
+          <h3><i class="fas fa-play-circle"></i> 音效測試</h3>
+          <div class="test-buttons">
+            <button class="btn primary test-btn" onclick="testAudioInModal('complete')">
+              <i class="fas fa-bell"></i> 測試完成音效
+            </button>
+            <button class="btn secondary test-btn" onclick="testAudioInModal('start')">
+              <i class="fas fa-play"></i> 測試開始音效
+            </button>
+            <button class="btn secondary test-btn" onclick="testAudioInModal('pause')">
+              <i class="fas fa-pause"></i> 測試暫停音效
+            </button>
+          </div>
+        </div>
+      `;
+      audioModalBody.appendChild(testSection);
+    } else {
+      audioModalBody.innerHTML = `
+        <div class="loading-message">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>載入音效設定中...</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function hideAudioSettingsModal() {
+  const modalOverlay = document.getElementById('modalOverlay');
+  const audioModal = document.getElementById('audioSettingsModal');
+  
+  if (modalOverlay && audioModal) {
+    audioModal.style.display = 'none';
+    modalOverlay.classList.remove('active');
+  }
+}
+
+// Help Modal Functions
+function showHelpModal() {
+  const modalOverlay = document.getElementById('modalOverlay');
+  const helpModal = document.getElementById('helpModal');
+  
+  if (modalOverlay && helpModal) {
+    // Hide other modals
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.style.display = 'none';
+    });
+    
+    // Show help modal
+    helpModal.style.display = 'block';
+    modalOverlay.classList.add('active');
+  }
+}
+
+function hideHelpModal() {
+  const modalOverlay = document.getElementById('modalOverlay');
+  const helpModal = document.getElementById('helpModal');
+  
+  if (modalOverlay && helpModal) {
+    helpModal.style.display = 'none';
+    modalOverlay.classList.remove('active');
+  }
+}
+
+// Test audio function for modal
+function testAudioInModal(type) {
+  if (window.playSound) {
+    playSound(type);
+    showNotification(`測試 ${type} 音效`, 'info');
+  }
+}
+
+// Make it globally accessible
+window.testAudioInModal = testAudioInModal;
 
 function addQuickTask() {
   const newTask = {
@@ -657,9 +761,80 @@ function showSettings() {
 
 // 音效播放
 function playSound(type) {
-  // 這裡可以播放不同類型的音效
-  // 實際實作需要音效檔案
-  console.log(`播放音效: ${type}`);
+  // 檢查音效設定
+  if (window.audioSettings && !window.audioSettings.isEnabled(type)) {
+    console.log(`音效已停用: ${type}`);
+    return;
+  }
+  
+  try {
+    // 使用 Web Audio API 生成音效
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // 獲取音量設定
+    const volume = window.audioSettings ? window.audioSettings.getVolume() : 0.1;
+    
+    // 根據音效類型設置不同的頻率和音調
+    let frequency, duration, pattern;
+    
+    switch(type) {
+      case 'complete':
+        // 番茄鐘完成 - 三聲長音
+        frequency = 800;
+        duration = 0.5;
+        pattern = [0, 0.6, 1.2]; // 三聲音效的時間間隔
+        break;
+      case 'start':
+        // 開始音效 - 短促的上升音
+        frequency = 600;
+        duration = 0.3;
+        pattern = [0];
+        break;
+      case 'pause':
+        // 暫停音效 - 下降音
+        frequency = 400;
+        duration = 0.2;
+        pattern = [0];
+        break;
+      default:
+        frequency = 500;
+        duration = 0.2;
+        pattern = [0];
+    }
+    
+    // 播放音效模式
+    pattern.forEach((delay, index) => {
+      setTimeout(() => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        
+        osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        gain.gain.setValueAtTime(0, audioContext.currentTime);
+        gain.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+        gain.gain.linearRampToValueAtTime(0, audioContext.currentTime + duration);
+        
+        osc.start(audioContext.currentTime);
+        osc.stop(audioContext.currentTime + duration);
+      }, delay * 1000);
+    });
+    
+    console.log(`播放音效: ${type} (音量: ${Math.round(volume * 100)}%)`);
+  } catch (error) {
+    console.error('播放音效失敗:', error);
+    // 降級到系統提示音
+    if (type === 'complete') {
+      // 對於完成提醒，嘗試使用瀏覽器原生提示
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🍅 番茄鐘完成！', {
+          body: '恭喜完成一個專注時段！',
+          icon: '/favicon.ico'
+        });
+      }
+    }
+  }
 }
 
 // 健康指標圖表
@@ -739,26 +914,121 @@ function startTimers() {
 function handleTimerComplete() {
   appState.focusTimer.isRunning = false;
   
+  // 播放提醒音效
+  playSound('complete');
+  
+  // 顯示完成通知模態框
+  showTimerCompleteModal();
+  
   if (appState.focusTimer.mode === 'focus') {
-    // 專注時間結束，開始休息
-    showNotification('專注時間結束！開始休息', 'success');
+    // 專注時間結束
     appState.health.efficiency = Math.min(appState.health.efficiency + 1, 100);
-    takeBreak();
-  } else {
-    // 休息時間結束，回到專注模式
-    showNotification('休息時間結束！準備下一輪專注', 'success');
-    appState.focusTimer.mode = 'focus';
-    appState.focusTimer.duration = 25 * 60;
-    appState.focusTimer.remaining = 25 * 60;
-    appState.console.status = 'idle';
   }
   
   updateFocusTimer();
   updateConsoleStatus();
   saveUserData();
+}
+
+// 顯示計時器完成的通知模態框
+function showTimerCompleteModal() {
+  const mode = appState.focusTimer.mode;
+  const isBreakTime = mode === 'focus';
   
-  // 播放提醒音效
-  playSound('complete');
+  const title = isBreakTime ? '🍅 專注時間完成！' : '☕ 休息時間結束！';
+  const message = isBreakTime ? 
+    '恭喜完成一個番茄鐘！現在該休息一下了。' : 
+    '休息時間結束，準備開始新的專注時段！';
+  
+  const modalHTML = `
+    <div class="timer-complete-modal">
+      <div class="modal-content">
+        <div class="timer-complete-header">
+          <h2>${title}</h2>
+          <div class="completion-animation">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+        <div class="timer-complete-body">
+          <p>${message}</p>
+          <div class="timer-stats">
+            <div class="stat">
+              <span class="stat-label">本次專注時長</span>
+              <span class="stat-value">${Math.floor(appState.focusTimer.duration / 60)} 分鐘</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">今日完成番茄鐘</span>
+              <span class="stat-value">${getCompletedPomodorosToday()} 個</span>
+            </div>
+          </div>
+        </div>
+        <div class="timer-complete-actions">
+          <button class="btn secondary" id="dismissTimer">關閉計時器</button>
+          ${isBreakTime ? 
+            '<button class="btn primary" id="startBreak">開始休息</button>' : 
+            '<button class="btn primary" id="startNextFocus">開始專注</button>'
+          }
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // 創建並顯示模態框
+  const modalOverlay = document.createElement('div');
+  modalOverlay.className = 'timer-complete-overlay';
+  modalOverlay.innerHTML = modalHTML;
+  document.body.appendChild(modalOverlay);
+  
+  // 添加動畫類
+  setTimeout(() => {
+    modalOverlay.classList.add('show');
+  }, 10);
+  
+  // 綁定事件
+  const dismissBtn = modalOverlay.querySelector('#dismissTimer');
+  const actionBtn = modalOverlay.querySelector(isBreakTime ? '#startBreak' : '#startNextFocus');
+  
+  dismissBtn.addEventListener('click', () => {
+    closeTimerCompleteModal(modalOverlay);
+    resetFocusTimer();
+  });
+  
+  actionBtn.addEventListener('click', () => {
+    closeTimerCompleteModal(modalOverlay);
+    if (isBreakTime) {
+      takeBreak();
+    } else {
+      // 開始新的專注時段
+      appState.focusTimer.mode = 'focus';
+      appState.focusTimer.duration = 25 * 60;
+      appState.focusTimer.remaining = 25 * 60;
+      appState.console.status = 'idle';
+      updateFocusTimer();
+      startFocusTimer();
+    }
+  });
+  
+  // 點擊背景關閉
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) {
+      closeTimerCompleteModal(modalOverlay);
+      resetFocusTimer();
+    }
+  });
+}
+
+// 關閉計時器完成模態框
+function closeTimerCompleteModal(modalOverlay) {
+  modalOverlay.classList.remove('show');
+  setTimeout(() => {
+    document.body.removeChild(modalOverlay);
+  }, 300);
+}
+
+// 獲取今日完成的番茄鐘數量
+function getCompletedPomodorosToday() {
+  // 這裡可以從本地存儲或應用狀態中獲取實際數據
+  return Math.floor(appState.health.workingTime / 0.42) || 1; // 假設每個番茄鐘25分鐘
 }
 
 // 快捷鍵功能
@@ -805,6 +1075,30 @@ function initModalEvents() {
       saveTask();
     });
   }
+
+  // Audio Settings Modal Events
+  const audioSettingsBtn = document.getElementById('audioSettingsBtn');
+  const closeAudioModal = document.getElementById('closeAudioModal');
+  
+  if (audioSettingsBtn) {
+    audioSettingsBtn.addEventListener('click', showAudioSettingsModal);
+  }
+  
+  if (closeAudioModal) {
+    closeAudioModal.addEventListener('click', hideAudioSettingsModal);
+  }
+
+  // Help Modal Events
+  const helpBtn = document.getElementById('helpBtn');
+  const closeHelpModal = document.getElementById('closeHelpModal');
+  
+  if (helpBtn) {
+    helpBtn.addEventListener('click', showHelpModal);
+  }
+  
+  if (closeHelpModal) {
+    closeHelpModal.addEventListener('click', hideHelpModal);
+  }
 }
 
 // 預設時間按鈕事件
@@ -840,6 +1134,101 @@ function initConsoleButtons() {
   });
 }
 
+// 請求瀏覽器通知權限
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(permission => {
+      if (permission === 'granted') {
+        console.log('瀏覽器通知權限已獲得');
+        showNotification('瀏覽器通知已啟用，計時完成時會收到提醒', 'success');
+      } else {
+        console.log('瀏覽器通知權限被拒絕');
+      }
+    });
+  }
+}
+
+// 鍵盤快捷鍵支援
+function initKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    // 檢查是否在輸入框中，如果是則不處理快捷鍵
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') {
+      return;
+    }
+
+    // 處理快捷鍵
+    switch(e.key.toLowerCase()) {
+      case ' ': // 空白鍵 - 開始/暫停計時器
+        e.preventDefault();
+        toggleFocusMode();
+        showNotification('使用空白鍵切換計時器狀態', 'info');
+        break;
+      
+      case 'r': // R 鍵 - 重設計時器
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          resetFocusTimer();
+          showNotification('使用 Ctrl+R 重設計時器', 'info');
+        }
+        break;
+      
+      case 'b': // B 鍵 - 開始休息
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          takeBreak();
+          showNotification('使用 Ctrl+B 開始休息', 'info');
+        }
+        break;
+      
+      case 'n': // N 鍵 - 新增任務
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const addTaskBtn = document.getElementById('addTaskBtn');
+          if (addTaskBtn) {
+            addTaskBtn.click();
+            showNotification('使用 Ctrl+N 新增任務', 'info');
+          }
+        }
+        break;
+      
+      case 'escape': // ESC 鍵 - 關閉模態框
+        const modals = document.querySelectorAll('.timer-complete-overlay, .modal-overlay');
+        modals.forEach(modal => {
+          if (modal.classList.contains('show') || modal.style.display !== 'none') {
+            modal.style.display = 'none';
+            if (modal.classList.contains('timer-complete-overlay')) {
+              resetFocusTimer();
+            }
+          }
+        });
+        break;
+      
+      case '?': // ? 鍵 - 顯示快捷鍵說明
+        if (e.shiftKey) {
+          e.preventDefault();
+          showHelpModal();
+        }
+        break;
+    }
+  });
+}
+
+// 顯示快捷鍵說明
+function showKeyboardShortcutsHelp() {
+  const helpMessage = `
+    🚀 快捷鍵說明：
+    
+    空白鍵 - 開始/暫停計時器
+    Ctrl+R - 重設計時器  
+    Ctrl+B - 開始休息
+    Ctrl+N - 新增任務
+    ESC - 關閉對話框
+    Shift+? - 顯示此說明
+  `;
+  
+  alert(helpMessage.trim());
+}
+
 // DOM 載入完成後初始化
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM 載入完成，開始初始化應用程式...');
@@ -848,9 +1237,13 @@ document.addEventListener('DOMContentLoaded', () => {
   initModalEvents();
   initTimerPresets();
   initConsoleButtons();
+  initKeyboardShortcuts();
   
   // 初始化應用程式
   initializeApp();
+  
+  // 請求通知權限
+  setTimeout(requestNotificationPermission, 3000);
 });
 
 // 視窗載入完成後的額外初始化

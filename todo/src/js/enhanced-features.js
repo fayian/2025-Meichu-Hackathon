@@ -878,12 +878,185 @@ function showDebugInfo() {
   notificationManager.show(debugInfo, 'info', 10000);
 }
 
+// Audio Settings Manager
+class AudioSettings {
+  constructor() {
+    this.settings = {
+      enabled: true,
+      volume: 0.5,
+      completionSound: true,
+      startSound: true,
+      pauseSound: false
+    };
+    this.loadSettings();
+  }
+
+  loadSettings() {
+    const saved = localStorage.getItem('audioSettings');
+    if (saved) {
+      this.settings = { ...this.settings, ...JSON.parse(saved) };
+    }
+  }
+
+  saveSettings() {
+    localStorage.setItem('audioSettings', JSON.stringify(this.settings));
+  }
+
+  updateSetting(key, value) {
+    this.settings[key] = value;
+    this.saveSettings();
+    this.notifyChange();
+  }
+
+  getSetting(key) {
+    return this.settings[key];
+  }
+
+  getAllSettings() {
+    return { ...this.settings };
+  }
+
+  isEnabled(soundType = null) {
+    if (!this.settings.enabled) return false;
+    if (soundType) {
+      const soundKey = `${soundType}Sound`;
+      return this.settings[soundKey] !== false;
+    }
+    return true;
+  }
+
+  getVolume() {
+    return this.settings.volume;
+  }
+
+  notifyChange() {
+    const event = new CustomEvent('audioSettingsChanged', {
+      detail: this.settings
+    });
+    window.dispatchEvent(event);
+  }
+
+  createSettingsUI() {
+    const container = document.createElement('div');
+    container.className = 'audio-settings-panel';
+    container.innerHTML = `
+      <div class="settings-section">
+        <h3><i class="fas fa-volume-up"></i> 音效設定</h3>
+        
+        <div class="setting-item">
+          <label class="setting-label">
+            <input type="checkbox" id="audioEnabled" ${this.settings.enabled ? 'checked' : ''}>
+            <span class="checkmark"></span>
+            啟用音效
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">音量</label>
+          <div class="volume-control">
+            <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="${this.settings.volume}">
+            <span class="volume-value">${Math.round(this.settings.volume * 100)}%</span>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">
+            <input type="checkbox" id="completionSound" ${this.settings.completionSound ? 'checked' : ''}>
+            <span class="checkmark"></span>
+            番茄鐘完成提醒音
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">
+            <input type="checkbox" id="startSound" ${this.settings.startSound ? 'checked' : ''}>
+            <span class="checkmark"></span>
+            開始計時音效
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label">
+            <input type="checkbox" id="pauseSound" ${this.settings.pauseSound ? 'checked' : ''}>
+            <span class="checkmark"></span>
+            暫停音效
+          </label>
+        </div>
+
+        <div class="setting-actions">
+          <button class="btn primary" id="testAudio">測試音效</button>
+          <button class="btn secondary" id="resetAudioSettings">重設</button>
+        </div>
+      </div>
+    `;
+
+    // 綁定事件
+    this.bindSettingsEvents(container);
+    return container;
+  }
+
+  bindSettingsEvents(container) {
+    const audioEnabled = container.querySelector('#audioEnabled');
+    const volumeSlider = container.querySelector('#volumeSlider');
+    const volumeValue = container.querySelector('.volume-value');
+    const completionSound = container.querySelector('#completionSound');
+    const startSound = container.querySelector('#startSound');
+    const pauseSound = container.querySelector('#pauseSound');
+    const testAudio = container.querySelector('#testAudio');
+    const resetSettings = container.querySelector('#resetAudioSettings');
+
+    audioEnabled.addEventListener('change', (e) => {
+      this.updateSetting('enabled', e.target.checked);
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+      const volume = parseFloat(e.target.value);
+      this.updateSetting('volume', volume);
+      volumeValue.textContent = `${Math.round(volume * 100)}%`;
+    });
+
+    completionSound.addEventListener('change', (e) => {
+      this.updateSetting('completionSound', e.target.checked);
+    });
+
+    startSound.addEventListener('change', (e) => {
+      this.updateSetting('startSound', e.target.checked);
+    });
+
+    pauseSound.addEventListener('change', (e) => {
+      this.updateSetting('pauseSound', e.target.checked);
+    });
+
+    testAudio.addEventListener('click', () => {
+      if (window.playSound && this.isEnabled('completion')) {
+        window.playSound('complete');
+      }
+    });
+
+    resetSettings.addEventListener('click', () => {
+      this.settings = {
+        enabled: true,
+        volume: 0.5,
+        completionSound: true,
+        startSound: true,
+        pauseSound: false
+      };
+      this.saveSettings();
+      location.reload(); // 簡單的重新載入以更新 UI
+    });
+  }
+}
+
+// Global audio settings instance
+const audioSettings = new AudioSettings();
+
 // Export enhanced features to global scope
 window.notificationManager = notificationManager;
 window.taskManager = taskManager;
 window.focusTimer = focusTimer;
 window.particleSystem = particleSystem;
 window.performanceMonitor = performanceMonitor;
+window.audioSettings = audioSettings;
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
