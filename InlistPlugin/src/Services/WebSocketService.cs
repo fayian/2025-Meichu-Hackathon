@@ -21,7 +21,7 @@ namespace Loupedeck.InlistPlugin.Services
         public bool IsConnected => _isConnected && _webSocket?.State == WebSocketState.Open;
 
         public WebSocketService(string serverUrl = "ws://localhost:7777") {
-            _serverUrl = serverUrl;
+            this._serverUrl = serverUrl;
         }
 
         public async Task ConnectAsync() {

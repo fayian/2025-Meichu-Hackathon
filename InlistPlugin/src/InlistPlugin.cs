@@ -86,20 +86,7 @@ namespace Loupedeck.InlistPlugin
                 PluginLog.Error($"Error handling WebSocket message: {ex.Message}");
             }
         }
-
-        // Helper method to send messages to the WebSocket server
-        public async Task SendMessageToServerAsync(string message) {
-            try {
-                if (_webSocketService.IsConnected) {
-                    await _webSocketService.SendMessageAsync(message);
-                } else {
-                    PluginLog.Warning("Cannot send message: WebSocket is not connected");
-                }
-            } catch (Exception ex) {
-                PluginLog.Error($"Failed to send message to server: {ex.Message}");
-            }
-        }
-
+        
         // Helper method to send JSON data to the WebSocket server
         public async Task SendJsonToServerAsync<T>(T data) {
             try {
