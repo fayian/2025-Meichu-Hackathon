@@ -4,6 +4,11 @@ const { contextBridge, ipcRenderer } = require("electron");
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld("electronAPI", {
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
+  
+  // AI state persistence
+  saveAIState: (state) => ipcRenderer.invoke('save-ai-state', state),
+  loadAIState: () => ipcRenderer.invoke('load-ai-state'),
+  clearAIState: () => ipcRenderer.invoke('clear-ai-state'),
 
   // WebSocket Server Control APIs
   websocket: {},

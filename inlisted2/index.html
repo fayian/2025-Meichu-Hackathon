@@ -4,13 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inlisted - 智能待辦事項管理工具</title>
-    <link rel="stylesheet" href="styles/main.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    />
-  </head>
-  <body>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/smart-pomodoro.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
     <div class="app-container">
       <!-- Header with current date and time -->
       <header class="app-header">
@@ -144,59 +142,108 @@
             </div>
           </section>
 
-          <!-- Pomodoro Timer Section -->
-          <section id="pomodoro" class="content-section">
-            <div class="section-header">
-              <h2>番茄鐘</h2>
-            </div>
+                <!-- Pomodoro Timer Section -->
+                <section id="pomodoro" class="content-section">
+                    <div class="section-header">
+                        <h2>智能番茄鐘</h2>
+                    </div>
+                    
+                    <!-- Smart Context Panel -->
+                    <div class="smart-context-panel">
+                        <h3>📊 當前狀態</h3>
+                        <div class="context-controls">
+                            <div class="context-item">
+                                <label for="moodSelect">心情狀態：</label>
+                                <select id="moodSelect">
+                                    <option value="good">😊 良好</option>
+                                    <option value="neutral" selected>😐 一般</option>
+                                    <option value="poor">😞 疲憊</option>
+                                </select>
+                            </div>
+                            <div class="context-item">
+                                <label for="taskEstimateInput">任務預估（分鐘）：</label>
+                                <input type="number" id="taskEstimateInput" value="25" min="5" max="120">
+                            </div>
+                            <div class="context-item">
+                                <label for="taskImportanceSelect">重要程度：</label>
+                                <select id="taskImportanceSelect">
+                                    <option value="low">低</option>
+                                    <option value="medium" selected>中</option>
+                                    <option value="high">高</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="pomodoro-container">
+                        <!-- Smart Suggestion -->
+                        <div class="smart-suggestion">
+                            <button class="btn btn-smart" id="smartSuggestionBtn">
+                                🧠 智能建議
+                            </button>
+                            <div id="aiExplanation" class="ai-explanation" style="display: none;"></div>
+                        </div>
 
-            <div class="pomodoro-container">
-              <div class="timer-display">
-                <div class="timer-circle">
-                  <div class="timer-text" id="timerDisplay">25:00</div>
-                </div>
-              </div>
+                        <div class="timer-display">
+                            <div class="timer-circle">
+                                <div class="timer-text" id="timerDisplay">25:00</div>
+                            </div>
+                        </div>
+                        
+                        <div class="timer-controls">
+                            <button class="btn btn-primary" id="startTimerBtn">
+                                <i class="fas fa-play"></i> 開始
+                            </button>
+                            <button class="btn btn-secondary" id="pauseTimerBtn" disabled>
+                                <i class="fas fa-pause"></i> 暫停
+                            </button>
+                            <button class="btn btn-danger" id="resetTimerBtn">
+                                <i class="fas fa-stop"></i> 重置
+                            </button>
+                        </div>
 
-              <div class="timer-controls">
-                <button class="btn btn-primary" id="startTimerBtn">
-                  <i class="fas fa-play"></i> 開始
-                </button>
-                <button class="btn btn-secondary" id="pauseTimerBtn" disabled>
-                  <i class="fas fa-pause"></i> 暫停
-                </button>
-                <button class="btn btn-danger" id="resetTimerBtn">
-                  <i class="fas fa-stop"></i> 重置
-                </button>
-              </div>
+                        <!-- User Feedback -->
+                        <div class="user-feedback">
+                            <h4>這個時長感覺如何？</h4>
+                            <div class="feedback-buttons">
+                                <button class="btn feedback-btn" data-feedback="too_short">⏱️ 太短</button>
+                                <button class="btn feedback-btn" data-feedback="just_right">✅ 剛好</button>
+                                <button class="btn feedback-btn" data-feedback="too_long">⏰ 太長</button>
+                            </div>
+                        </div>
 
-              <div class="timer-presets">
-                <h3>預設時間</h3>
-                <div class="preset-buttons">
-                  <button class="preset-btn" data-minutes="25">25 分鐘</button>
-                  <button class="preset-btn" data-minutes="15">15 分鐘</button>
-                  <button class="preset-btn" data-minutes="45">45 分鐘</button>
-                  <button class="preset-btn" data-minutes="60">60 分鐘</button>
-                </div>
-              </div>
+                        <div class="timer-presets">
+                            <h3>預設時間</h3>
+                            <div class="preset-buttons">
+                                <button class="preset-btn" data-minutes="15">15分</button>
+                                <button class="preset-btn" data-minutes="20">20分</button>
+                                <button class="preset-btn" data-minutes="25">25分</button>
+                                <button class="preset-btn" data-minutes="30">30分</button>
+                                <button class="preset-btn" data-minutes="40">40分</button>
+                                <button class="preset-btn" data-minutes="50">50分</button>
+                            </div>
+                        </div>
 
-              <div class="custom-time">
-                <h3>自定義時間</h3>
-                <div class="time-input">
-                  <input
-                    type="number"
-                    id="customMinutes"
-                    min="1"
-                    max="180"
-                    value="25"
-                  />
-                  <span>分鐘</span>
-                  <button class="btn btn-secondary" id="setCustomTimeBtn">
-                    設定
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
+                        <div class="custom-time">
+                            <h3>自定義時間</h3>
+                            <div class="time-input">
+                                <input type="number" id="customMinutes" min="1" max="180" value="25">
+                                <span>分鐘</span>
+                                <button class="btn btn-secondary" id="setCustomTimeBtn">設定</button>
+                            </div>
+                        </div>
+
+                        <!-- AI Management -->
+                        <div class="ai-management">
+                            <button class="btn btn-warning" onclick="window.pomodoroTimer.smartAI.resetAI(); alert('AI學習已重置！');">
+                                🔄 重置AI學習
+                            </button>
+                            <button class="btn btn-info" onclick="alert(window.pomodoroTimer.smartAI.explainCurrentFatigue());">
+                                💪 查看疲勞狀態
+                            </button>
+                        </div>
+                    </div>
+                </section>
 
           <!-- Health Reminder Section -->
           <section id="health-reminder" class="content-section">
@@ -313,6 +360,7 @@
     </div>
 
     <script src="scripts/main.js"></script>
+    <script src="scripts/smartPomodoro.js"></script>
     <script src="scripts/taskManager.js"></script>
     <script src="scripts/pomodoro.js"></script>
     <script src="scripts/healthReminder.js"></script>

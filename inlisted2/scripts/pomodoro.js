@@ -1,4 +1,4 @@
-// Pomodoro Timer functionality
+// Pomodoro Timer functionality with Smart AI integration
 class PomodoroTimer {
     constructor() {
         this.timeLeft = 25 * 60; // Default 25 minutes in seconds
@@ -6,12 +6,19 @@ class PomodoroTimer {
         this.isRunning = false;
         this.isPaused = false;
         this.interval = null;
+        this.pauses = 0;
+        this.userFeedback = null;
+        
+        // Initialize Smart AI
+        this.smartAI = new SmartPomodoroAI();
+        
         this.init();
     }
 
     init() {
         this.setupEventListeners();
         this.updateDisplay();
+        this.updateFeedbackUI();
     }
 
     setupEventListeners() {
@@ -26,6 +33,21 @@ class PomodoroTimer {
 
         document.getElementById('resetTimerBtn').addEventListener('click', () => {
             this.resetTimer();
+        });
+
+        // Smart suggestion button
+        const smartBtn = document.getElementById('smartSuggestionBtn');
+        if (smartBtn) {
+            smartBtn.addEventListener('click', () => {
+                this.getSmartSuggestion();
+            });
+        }
+
+        // User feedback buttons
+        document.querySelectorAll('.feedback-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.setUserFeedback(btn.dataset.feedback);
+            });
         });
 
         // Preset buttons
@@ -52,6 +74,39 @@ class PomodoroTimer {
                 document.getElementById('setCustomTimeBtn').click();
             }
         });
+
+        // Context updates
+        const moodSelect = document.getElementById('moodSelect');
+        if (moodSelect) {
+            moodSelect.addEventListener('change', (e) => {
+                this.smartAI.setContext({ selfReportedState: e.target.value });
+            });
+        }
+
+        const taskImportanceSelect = document.getElementById('taskImportanceSelect');
+        if (taskImportanceSelect) {
+            taskImportanceSelect.addEventListener('change', (e) => {
+                this.smartAI.setContext({ 
+                    currentTask: { 
+                        ...this.smartAI.currentContext.currentTask, 
+                        importance: e.target.value 
+                    } 
+                });
+            });
+        }
+
+        const taskEstimateInput = document.getElementById('taskEstimateInput');
+        if (taskEstimateInput) {
+            taskEstimateInput.addEventListener('change', (e) => {
+                const estimateMin = parseInt(e.target.value) || 25;
+                this.smartAI.setContext({ 
+                    currentTask: { 
+                        ...this.smartAI.currentContext.currentTask, 
+                        estimateMin 
+                    } 
+                });
+            });
+        }
     }
 
     setTime(minutes) {
@@ -94,6 +149,7 @@ class PomodoroTimer {
         if (this.isRunning && !this.isPaused) {
             clearInterval(this.interval);
             this.isPaused = true;
+            this.pauses++; // Track pauses for AI learning
             this.updateControls();
             window.inlistedApp.showNotification('番茄鐘暫停', '計時器已暫停');
         } else if (this.isPaused) {
@@ -108,8 +164,11 @@ class PomodoroTimer {
         if (confirmReset) {
             this.stopTimer();
             this.timeLeft = this.originalTime;
+            this.pauses = 0; // Reset pause count
+            this.userFeedback = null; // Reset feedback
             this.updateDisplay();
             this.updateControls();
+            this.updateFeedbackUI();
             window.inlistedApp.showNotification('番茄鐘重置', '計時器已重置');
         }
     }
@@ -126,17 +185,30 @@ class PomodoroTimer {
         this.updateDisplay();
         this.updateControls();
 
-        // Show completion notification
+        // Process session with Smart AI
+        const sessionResult = this.smartAI.finishSession({
+            completed: true,
+            pauses: this.pauses,
+            userFeedback: this.userFeedback,
+            duration: Math.floor(this.originalTime / 60)
+        });
+
+        // Show completion notification with AI break suggestion
         window.inlistedApp.showNotification(
             '番茄鐘完成！', 
-            '專注時間結束，該休息一下了！'
+            sessionResult.explanation
         );
 
         // Optional: Play sound (you could add an audio element)
         this.playNotificationSound();
 
-        // Show completion modal or alert
-        this.showCompletionDialog();
+        // Show completion dialog with AI suggestions
+        this.showSmartCompletionDialog(sessionResult);
+
+        // Reset for next session
+        this.pauses = 0;
+        this.userFeedback = null;
+        this.updateFeedbackUI();
     }
 
     playNotificationSound() {
@@ -158,14 +230,20 @@ class PomodoroTimer {
         oscillator.stop(audioContext.currentTime + 1);
     }
 
-    showCompletionDialog() {
-        const response = confirm('番茄鐘完成！\n\n點擊"確定"開始休息時間\n點擊"取消"重新開始');
+    showSmartCompletionDialog(sessionResult) {
+        const { breakSuggestion, explanation } = sessionResult;
+        
+        const message = `番茄鐘完成！\n\n建議休息：${breakSuggestion.minutes}分鐘 (${breakSuggestion.kind === 'short' ? '短' : '長'}休息)\n${breakSuggestion.reason}\n\n點擊"確定"開始建議的休息時間\n點擊"取消"繼續工作`;
+        
+        const response = confirm(message);
         
         if (response) {
-            // Start a 5-minute break timer
-            this.setTime(5);
+            // Start AI-suggested break timer
+            this.setTime(breakSuggestion.minutes);
             setTimeout(() => {
-                if (confirm('是否開始下一個番茄鐘？')) {
+                if (confirm('休息結束！是否開始下一個番茄鐘？\n\n點擊"確定"獲取智能建議\n點擊"取消"使用標準25分鐘')) {
+                    this.getSmartSuggestion();
+                } else {
                     this.setTime(25);
                 }
             }, 500);
@@ -174,6 +252,47 @@ class PomodoroTimer {
             this.timeLeft = this.originalTime;
             this.updateDisplay();
         }
+    }
+
+    // Get smart suggestion from AI
+    getSmartSuggestion() {
+        const suggestion = this.smartAI.chooseSmart();
+        this.setTime(suggestion.duration);
+        
+        // Show explanation
+        const explanationEl = document.getElementById('aiExplanation');
+        if (explanationEl) {
+            explanationEl.textContent = suggestion.explanation;
+            explanationEl.style.display = 'block';
+        } else {
+            // Fallback: show in notification
+            window.inlistedApp.showNotification(
+                `AI建議：${suggestion.duration}分鐘`, 
+                suggestion.explanation
+            );
+        }
+    }
+
+    // Set user feedback for current session
+    setUserFeedback(feedback) {
+        this.userFeedback = feedback;
+        this.updateFeedbackUI();
+        
+        // If session is ongoing, provide immediate feedback to AI
+        if (this.isRunning || this.isPaused) {
+            // You could process partial session feedback here if desired
+            console.log(`用戶反饋：${feedback}`);
+        }
+    }
+
+    // Update feedback UI to show current selection
+    updateFeedbackUI() {
+        document.querySelectorAll('.feedback-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.feedback === this.userFeedback) {
+                btn.classList.add('active');
+            }
+        });
     }
 
     updateDisplay() {
