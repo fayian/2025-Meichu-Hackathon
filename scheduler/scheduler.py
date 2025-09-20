@@ -35,6 +35,53 @@ def get_calendar_service():
         print(f'An error occurred: {error}')
         return None
 
+def get_calendar_events_as_tasks(service, start_range, end_range):
+    print("正在讀取主要行事曆的事件並轉換為任務列表...")
+    try:
+        tz = start_range.tzinfo
+        events_result = service.events().list(
+            calendarId='primary', 
+            timeMin=start_range.isoformat(), 
+            timeMax=end_range.isoformat(),
+            singleEvents=True, 
+            orderBy='startTime'
+        ).execute()
+        
+        calendar_events = events_result.get('items', [])
+        tasks_list = []
+
+        for event in calendar_events:
+            # 忽略全天事件或沒有明確時間的事件
+            if 'dateTime' not in event['start']:
+                continue
+
+            start_time_str = event['start'].get('dateTime')
+            end_time_str = event['end'].get('dateTime')
+            
+            # 確保時區正確
+            start_time = dt.datetime.fromisoformat(start_time_str).astimezone(tz)
+            end_time = dt.datetime.fromisoformat(end_time_str).astimezone(tz)
+            duration_hours = (end_time - start_time).total_seconds() / 3600
+
+            tasks_list.append({
+                "id": event['id'],  # 使用事件ID作為唯一標識
+                "name": event.get('summary', '無標題事件'),
+                "deadline": end_time.isoformat(), # 使用結束時間作為截止日期
+                "startTime": start_time.isoformat(), # 額外提供開始時間
+                "priority": 'medium', # 預設優先級，因為行事曆事件沒有這個屬性
+                "duration": round(duration_hours, 2),
+                "completed": False, # 預設都是未完成
+                "createdAt": event.get('created'),
+                "source": "calendar" # 標記來源
+            })
+            
+        print(f"成功讀取並轉換了 {len(tasks_list)} 個事件。")
+        return tasks_list
+
+    except HttpError as e:
+        print(f"讀取主要行事曆事件時發生錯誤: {e}")
+        return []
+
 # --- 事件建立與讀取 ---
 def create_calendar_event(service, task_name, start_dt, end_dt):
     event = {

@@ -3,7 +3,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from posture.model import PosturePomodoroModel
-from scheduler.scheduler import schedule_all_tasks, get_calendar_service
+from scheduler.scheduler import schedule_all_tasks, get_calendar_service, get_calendar_events_as_tasks
 import threading
 import time
 from fastapi import FastAPI, HTTPException
@@ -123,6 +123,19 @@ class Capturing(list):
         self.extend(self._stringio.getvalue().splitlines())
         sys.stdout = self._stdout
 
+class TaskFromCalendar(BaseModel):
+    id: str
+    name: str
+    deadline: str
+    startTime: str
+    priority: str
+    duration: float
+    completed: bool
+    createdAt: Optional[str]
+    source: str
+
+ScheduleSyncResponse = List[TaskFromCalendar]
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the PosturePomodoroModel API!"}
@@ -204,6 +217,46 @@ async def schedule_tasks_endpoint(tasks_from_frontend: List[Task]):
         "failed": results["failed"],
         "logs": output_logs
     }
+
+@app.post("/schedule-and-sync", response_model=ScheduleSyncResponse) # 更改路徑和回應模型
+async def schedule_and_sync_endpoint(tasks_from_frontend: List[Task]):
+    # ... (保留之前的數據格式轉換邏輯)
+    priority_map_frontend_to_backend = {'high': '高', 'medium': '中', 'low': '低'}
+    tasks_for_scheduler = []
+    local_tz = dt.datetime.now().astimezone().tzinfo
+    now = dt.datetime.now(local_tz)
+    last_due_date = now
+
+    for task in tasks_from_frontend:
+        if not task.completed:
+            due_date = dt.datetime.fromisoformat(task.deadline).astimezone(local_tz)
+            if due_date > last_due_date:
+                last_due_date = due_date
+            tasks_for_scheduler.append({
+                "name": task.name,
+                "duration_minutes": int(task.duration * 60),
+                "due_date": due_date,
+                "priority": priority_map_frontend_to_backend.get(task.priority, '中')
+            })
+
+    # 1. 執行排程
+    service = get_calendar_service()
+    if not service:
+        raise HTTPException(status_code=500, detail="Failed to authenticate with Google Calendar API")
+    
+    with Capturing() as output_logs:
+        schedule_all_tasks(service, tasks_for_scheduler)
+    
+    print("Scheduler logs:", output_logs)
+
+    # 2. 排程後，讀取整個行事曆的事件
+    # 將讀取範圍擴大一天，以包含可能的跨日排程
+    end_range = last_due_date + dt.timedelta(days=1)
+    
+    synced_tasks = get_calendar_events_as_tasks(service, now, end_range)
+
+    # 3. 回傳完整的、已排序的任務列表
+    return synced_tasks
 
 if __name__ == "__main__":
     import uvicorn
