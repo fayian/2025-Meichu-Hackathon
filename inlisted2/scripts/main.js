@@ -1,6 +1,3 @@
-const { ipcRenderer } = require("electron");
-
-// Main application logic
 class InlistedApp {
   constructor() {
     this.currentSection = "task-manager";
@@ -12,7 +9,6 @@ class InlistedApp {
     this.setupNavigation();
     this.setupDateTime();
     this.setupModals();
-    this.initializeWebSocket();
   }
 
   setupNavigation() {
@@ -151,7 +147,7 @@ class InlistedApp {
 }
 
 // Render WebSocket status
-ipcRenderer.on("websocket-server-active", (status) => {
+window.ipcRenderer.onWebsocketServerActive((status) => {
   const websocketStatusElement = document.getElementById("websocket-status");
   if (!websocketStatusElement) return;
 

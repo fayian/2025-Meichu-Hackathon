@@ -1,5 +1,3 @@
-const { ipcRenderer } = require("electron");
-
 // Task Manager functionality
 class TaskManager {
   constructor() {
@@ -303,6 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.taskManager = new TaskManager();
 });
 
-ipcRenderer.on("new-task", (event, taskData) => {
+//handle new task from main process
+window.ipcRenderer.onNewTask((taskData) => {
   window.inlistedApp.showNotification("new task");
 });
