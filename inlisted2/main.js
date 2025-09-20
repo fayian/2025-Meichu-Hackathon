@@ -1,9 +1,21 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const Store = require('electron-store');
 
 let mainWindow;
+let aiStore;
 
 function createWindow() {
+  // Initialize electron-store for AI persistence
+  aiStore = new Store({
+    name: 'pomodoro-ai',
+    defaults: {
+      banditState: null,
+      fatigueState: null,
+      lastUpdated: null
+    }
+  });
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -42,6 +54,51 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+// IPC handlers for AI state persistence
+ipcMain.handle('save-ai-state', (event, state) => {
+  try {
+    if (aiStore) {
+      aiStore.set('banditState', state.bandit);
+      aiStore.set('fatigueState', state.fatigue);
+      aiStore.set('lastUpdated', state.lastUpdated);
+      return { success: true };
+    }
+    return { success: false, error: 'Store not initialized' };
+  } catch (error) {
+    console.error('Failed to save AI state:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('load-ai-state', () => {
+  try {
+    if (aiStore) {
+      return {
+        bandit: aiStore.get('banditState'),
+        fatigue: aiStore.get('fatigueState'),
+        lastUpdated: aiStore.get('lastUpdated')
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to load AI state:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('clear-ai-state', () => {
+  try {
+    if (aiStore) {
+      aiStore.clear();
+      return { success: true };
+    }
+    return { success: false, error: 'Store not initialized' };
+  } catch (error) {
+    console.error('Failed to clear AI state:', error);
+    return { success: false, error: error.message };
   }
 });
 
