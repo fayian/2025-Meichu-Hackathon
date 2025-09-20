@@ -68,9 +68,10 @@
           <section id="task-manager" class="content-section active">
             <div class="section-header">
               <h2>Task Manager</h2>
-              <button class="btn btn-primary" id="addTaskBtn">
-                <i class="fas fa-plus"></i> 新增任務
-              </button>
+                <div class="main-controls">
+                  <button id="addTaskBtn" class="btn btn-primary"><i class="fas fa-plus"></i> 新增任務</button>
+                  <button id="scheduleTasksBtn" class="btn btn-success"><i class="fas fa-calendar-check"></i> 一鍵排程</button>
+                </div>
             </div>
 
             <div class="task-filters">
@@ -419,5 +420,23 @@
     <script src="scripts/pomodoro.js"></script>
     <script src="scripts/healthReminder.js"></script>
     <script src="scripts/imageQA.js"></script>
+
+    <div id="scheduleResultModal" class="modal-overlay" style="display: none;">
+      <div class="modal-content">
+          <div id="scheduleResultContent">
+              </div>
+          <button id="closeScheduleResultBtn" class="btn btn-primary">關閉</button>
+      </div>
+    </div>
+    <script src="scripts/taskManager.js"></script>
+
+    <div id="scheduleResultModal" class="modal-overlay" style="display: none;">
+    </div>
+
+    <div id="loader" class="loader-overlay" style="display: none;">
+      <div class="spinner"></div>
+      <p class="loader-text">正在為您進行智慧排程...</p>
+    </div>
+    <script src="scripts/taskManager.js"></script>
   </body>
 </html>

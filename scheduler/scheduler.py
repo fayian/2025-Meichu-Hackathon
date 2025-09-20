@@ -18,15 +18,15 @@ LUNCH_BREAK_END = 13
 # --- Google API 認證 ---
 def get_calendar_service():
     creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    if os.path.exists('../scheduler/token.json'):
+        creds = Credentials.from_authorized_user_file('../scheduler/token.json', SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file('../scheduler/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
+        with open('../scheduler/token.json', 'w') as token:
             token.write(creds.to_json())
     try:
         service = build('calendar', 'v3', credentials=creds)
@@ -188,28 +188,56 @@ def schedule_all_tasks(service, tasks):
     priority_map = {'高': 1, '中': 2, '低': 3}
     sorted_tasks = sorted(tasks, key=lambda x: (priority_map[x['priority']], x['due_date']))
     now = dt.datetime.now().astimezone()
+
+    # 初始化結果物件
+    scheduling_results = {
+        "successful": [],
+        "failed": []
+    }
+
     if not sorted_tasks:
         print("待辦事項列表為空。")
-        return
+        return scheduling_results
+
     last_due_date = max(t['due_date'] for t in sorted_tasks)
     master_busy_slots = get_all_busy_slots(service, now, last_due_date)
 
     for task in sorted_tasks:
+        task_name = task['name']
         print("\n" + "="*60)
-        print(f"處理任務: {task['name']} (優先級: {task['priority']}, 截止於: {task['due_date'].strftime('%Y-%m-%d %H:%M')})")
+        print(f"處理任務: {task_name} (優先級: {task['priority']}, 截止於: {task['due_date'].strftime('%Y-%m-%d %H:%M')})")
+
         if task['due_date'] < now:
-            print(f"警告: 任務 '{task['name']}' 的截止日期已過，跳過排程。")
+            print(f"警告: 任務 '{task_name}' 的截止日期已過，跳過排程。")
+            scheduling_results["failed"].append({
+                "name": task_name,
+                "reason": "截止日期已過 (Due date has passed)"
+            })
             continue
+
         new_slot = schedule_task(service, task, now, master_busy_slots)
+        
         if new_slot:
             master_busy_slots.append(new_slot)
             master_busy_slots.sort()
-            print(f"任務 '{task['name']}' 已成功排入行事曆。")
+            print(f"任務 '{task_name}' 已成功排入行事曆。")
+            scheduling_results["successful"].append({
+                "name": task_name,
+                "start": new_slot[0].isoformat(),
+                "end": new_slot[1].isoformat()
+            })
         else:
-            print(f"警告: 找不到適合的時段來安排任務 '{task['name']}'。")
+            print(f"警告: 找不到適合的時段來安排任務 '{task_name}'。")
+            scheduling_results["failed"].append({
+                "name": task_name,
+                "reason": "找不到適合的時段 (Could not find a suitable time slot)"
+            })
     
     print("\n" + "="*60)
     print("所有任務處理完畢。")
+    
+    # 回傳結構化的結果
+    return scheduling_results
 
 # --- 主程式執行區 ---
 if __name__ == '__main__':

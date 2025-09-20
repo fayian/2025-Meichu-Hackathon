@@ -1668,3 +1668,126 @@ input:checked + .slider:before {
         align-items: flex-start;
     }
 }
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.show .modal-content {
+    transform: scale(1);
+}
+
+
+#scheduleResultContent h2 {
+    margin-top: 0;
+    font-size: 1.8rem;
+}
+
+#scheduleResultContent .icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.icon.success {
+    color: #28a745; /* 綠色 */
+}
+
+.icon.warning {
+    color: #ffc107; /* 黃色 */
+}
+
+#scheduleResultContent ul {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 1rem;
+    padding: 0.5rem;
+}
+
+#scheduleResultContent li {
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+#scheduleResultContent li:last-child {
+    border-bottom: none;
+}
+
+#closeScheduleResultBtn {
+    margin-top: 1.5rem;
+}
+
+.loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    flex-direction: column; /* 讓文字在 spinner 下方 */
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* 確保在最上層 */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.loader-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+.loader-text {
+    color: #fff;
+    margin-top: 20px;
+    font-size: 1.1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
