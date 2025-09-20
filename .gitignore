@@ -146,3 +146,6 @@ crashpad/
 !package-lock.json
 !yarn.lock
 !pnpm-lock.yaml
+
+scheduler/token.json
+scheduler/credentials.json
