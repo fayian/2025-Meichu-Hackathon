@@ -8,6 +8,14 @@ class HealthReminder {
         this.postureApiUrl = 'http://127.0.0.1:8000'; // posture API URL
         this.isPostureApiConnected = false;
         this.isDrinkingApiConnected = false;
+        
+        // 新增的狀態追蹤
+        this.isPostureDetectionActive = false;
+        this.isWaterReminderActive = false;
+        this.badPostureCount = 0; // 連續不良姿勢計數
+        this.postureHistory = []; // 姿勢歷史記錄
+        this.waterReminderInterval = 60; // 預設60分鐘
+        
         this.init();
     }
 
@@ -29,41 +37,6 @@ class HealthReminder {
     }
 
     setupEventListeners() {
-        // Posture reminder toggle
-        document.getElementById('postureToggle').addEventListener('change', (e) => {
-            if (e.target.checked) {
-                this.startPostureReminder();
-            } else {
-                this.stopPostureReminder();
-            }
-            this.updateFeatureStatus('posture', e.target.checked);
-        });
-
-        // Water reminder toggle
-        document.getElementById('waterToggle').addEventListener('change', (e) => {
-            if (e.target.checked) {
-                this.startWaterReminder();
-            } else {
-                this.stopWaterReminder();
-            }
-            this.updateFeatureStatus('water', e.target.checked);
-        });
-
-        // Interval changes
-        document.getElementById('postureInterval').addEventListener('change', () => {
-            if (document.getElementById('postureToggle').checked) {
-                this.startPostureReminder(); // Restart with new interval
-            }
-            this.saveSettings();
-        });
-
-        document.getElementById('waterInterval').addEventListener('change', () => {
-            if (document.getElementById('waterToggle').checked) {
-                this.startWaterReminder(); // Restart with new interval
-            }
-            this.saveSettings();
-        });
-
         // Add water button
         document.getElementById('addWaterBtn').addEventListener('click', () => {
             this.addWater();
@@ -78,94 +51,277 @@ class HealthReminder {
             this.stopPostureDetection();
         });
 
-        document.getElementById('checkPostureBtn')?.addEventListener('click', () => {
-            this.checkCurrentPosture();
+        // Water reminder buttons  
+        document.getElementById('startWaterReminderBtn')?.addEventListener('click', () => {
+            this.startWaterReminder();
         });
 
-        // Drinking detection buttons
-        document.getElementById('startDrinkingDetectionBtn')?.addEventListener('click', () => {
-            this.startDrinkingDetection();
+        document.getElementById('stopWaterReminderBtn')?.addEventListener('click', () => {
+            this.stopWaterReminder();
         });
 
-        document.getElementById('stopDrinkingDetectionBtn')?.addEventListener('click', () => {
-            this.stopDrinkingDetection();
-        });
-
-        document.getElementById('checkLastDrinkBtn')?.addEventListener('click', () => {
-            this.checkLastDrinkTime();
+        // Water reminder interval setting
+        document.getElementById('waterInterval')?.addEventListener('change', (e) => {
+            this.waterReminderInterval = parseInt(e.target.value);
+            this.saveSettings();
+            if (this.isWaterReminderActive) {
+                this.stopWaterReminder();
+                this.startWaterReminder(); // 重新啟動以套用新間隔
+            }
         });
     }
 
-    startPostureReminder() {
-        this.stopPostureReminder(); // Clear any existing timer
-        
-        const interval = parseInt(document.getElementById('postureInterval').value) * 60 * 1000; // Convert to milliseconds
-        
-        this.postureTimer = setInterval(() => {
-            this.showPostureReminder();
-        }, interval);
+    // 新的姿勢檢測邏輯：每5秒檢查一次，連續4次不良姿勢發出警告
+    async startPostureDetection() {
+        if (!this.isPostureApiConnected) {
+            this.showNotification('錯誤', 'API 未連線，無法啟動姿勢檢測');
+            return;
+        }
 
-        window.inlistedApp.showNotification('坐姿提醒已啟用', `每 ${interval / 60000} 分鐘提醒一次`);
+        try {
+            // 啟動後端姿勢檢測
+            const response = await fetch(`${this.postureApiUrl}/start_posture_test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                this.isPostureDetectionActive = true;
+                this.badPostureCount = 0;
+                this.postureHistory = [];
+                
+                // 每5秒檢查一次姿勢
+                this.postureTimer = setInterval(() => {
+                    this.checkPostureAndAlert();
+                }, 5000);
+
+                document.getElementById('postureDetectionStatus').textContent = '檢測中...';
+                document.getElementById('postureDetectionStatus').className = 'detection-status active';
+                this.showNotification('姿勢檢測啟動', '開始監控您的坐姿，連續不良坐姿10秒將警告');
+            } else {
+                throw new Error('Failed to start posture detection');
+            }
+        } catch (error) {
+            console.error('Error starting posture detection:', error);
+            this.showNotification('錯誤', '無法啟動姿勢檢測');
+        }
     }
 
-    stopPostureReminder() {
+    async stopPostureDetection() {
         if (this.postureTimer) {
             clearInterval(this.postureTimer);
             this.postureTimer = null;
         }
+
+        this.isPostureDetectionActive = false;
+        this.badPostureCount = 0;
+        this.postureHistory = [];
+
+        if (!this.isPostureApiConnected) {
+            this.showNotification('錯誤', 'API 未連線');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.postureApiUrl}/stop_posture_test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                document.getElementById('postureDetectionStatus').textContent = '未檢測';
+                document.getElementById('postureDetectionStatus').className = 'detection-status inactive';
+                this.showNotification('姿勢檢測停止', '已停止監控您的坐姿');
+            } else {
+                throw new Error('Failed to stop posture detection');
+            }
+        } catch (error) {
+            console.error('Error stopping posture detection:', error);
+            this.showNotification('錯誤', '無法停止姿勢檢測');
+        }
     }
 
-    startWaterReminder() {
-        this.stopWaterReminder(); // Clear any existing timer
-        
-        const interval = parseInt(document.getElementById('waterInterval').value) * 60 * 1000; // Convert to milliseconds
-        
-        this.waterTimer = setInterval(() => {
-            this.showWaterReminder();
-        }, interval);
+    // 新的喝水提醒邏輯：每分鐘檢查一次API，根據時間間隔發通知
+    async startWaterReminder() {
+        if (!this.isPostureApiConnected) {
+            this.showNotification('錯誤', 'API 未連線，無法啟動喝水提醒');
+            return;
+        }
 
-        window.inlistedApp.showNotification('喝水提醒已啟用', `每 ${interval / 60000} 分鐘提醒一次`);
+        try {
+            // 啟動後端喝水檢測
+            const response = await fetch(`${this.postureApiUrl}/start_drinking_test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                this.isWaterReminderActive = true;
+                
+                // 每分鐘檢查一次上次喝水時間
+                this.waterTimer = setInterval(() => {
+                    this.checkWaterAndRemind();
+                }, 60000); // 每分鐘檢查
+
+                document.getElementById('waterReminderStatus').textContent = '提醒中...';
+                document.getElementById('waterReminderStatus').className = 'detection-status active';
+                this.showNotification('喝水提醒啟動', `每分鐘檢查一次，超過${this.waterReminderInterval}分鐘未喝水將提醒您`);
+            } else {
+                throw new Error('Failed to start water reminder');
+            }
+        } catch (error) {
+            console.error('Error starting water reminder:', error);
+            this.showNotification('錯誤', '無法啟動喝水提醒');
+        }
     }
 
-    stopWaterReminder() {
+    async stopWaterReminder() {
         if (this.waterTimer) {
             clearInterval(this.waterTimer);
             this.waterTimer = null;
         }
+
+        this.isWaterReminderActive = false;
+
+        if (!this.isPostureApiConnected) {
+            this.showNotification('錯誤', 'API 未連線');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.postureApiUrl}/stop_drinking_test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.ok) {
+                document.getElementById('waterReminderStatus').textContent = '未提醒';
+                document.getElementById('waterReminderStatus').className = 'detection-status inactive';
+                this.showNotification('喝水提醒停止', '已停止喝水提醒');
+            } else {
+                throw new Error('Failed to stop water reminder');
+            }
+        } catch (error) {
+            console.error('Error stopping water reminder:', error);
+            this.showNotification('錯誤', '無法停止喝水提醒');
+        }
     }
 
-    showPostureReminder() {
-        const messages = [
-            '記得保持正確坐姿！',
-            '挺直背部，放鬆肩膀',
-            '檢查一下你的坐姿是否正確',
-            '調整螢幕高度，保護頸椎',
-            '雙腳平放地面，膝蓋成90度'
-        ];
+    // 檢查姿勢並在連續不良時發出警告
+    async checkPostureAndAlert() {
+        if (!this.isPostureApiConnected || !this.isPostureDetectionActive) {
+            return;
+        }
 
-        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        
-        window.inlistedApp.showNotification('坐姿提醒', randomMessage);
-        
-        // Optional: Show visual reminder in the app
-        this.showInAppReminder('posture', randomMessage);
+        try {
+            const response = await fetch(`${this.postureApiUrl}/get_posture`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const postureStatus = data.posture;
+                
+                // 記錄姿勢歷史（保持最近10次記錄）
+                this.postureHistory.push(postureStatus);
+                if (this.postureHistory.length > 10) {
+                    this.postureHistory.shift();
+                }
+
+                // 檢查連續不良姿勢 (支援多種不良姿勢狀態)
+                const isBadPosture = (
+                    postureStatus === 'bad' || 
+                    postureStatus === 'poor' || 
+                    postureStatus === 'incorrect' ||
+                    postureStatus === 'Poor Posture' ||
+                    postureStatus === 'Bad Posture' ||
+                    postureStatus.toLowerCase().includes('poor') ||
+                    postureStatus.toLowerCase().includes('bad')
+                );
+                
+                console.log(`姿勢檢測: "${postureStatus}", 是否不良: ${isBadPosture}, 計數: ${this.badPostureCount}`);
+                
+                if (isBadPosture) {
+                    this.badPostureCount++;
+                    
+                    // 連續2次不良姿勢時發出警告 (10秒)
+                    if (this.badPostureCount >= 2) {
+                        console.log('🚨 觸發姿勢警告！');
+                        
+                        // 使用多種方式確保用戶看到提醒
+                        alert('🚨 姿勢警告！\n\n您已經連續保持不良坐姿超過10秒，請立即調整您的坐姿！\n\n建議：\n• 挺直背部，放鬆肩膀\n• 調整螢幕高度至眼部水平\n• 雙腳平放地面');
+                        
+                        // 額外的視覺提醒
+                        this.showNotification('🚨 姿勢警告', '連續不良坐姿超過10秒，請立即調整！');
+                        this.showInAppReminder('posture', '🚨 請立即調整您的坐姿！');
+                        
+                        this.badPostureCount = 0; // 重置計數器，避免重複警告
+                    }
+                } else {
+                    // 姿勢正常時重置計數器
+                    this.badPostureCount = 0;
+                }
+
+                // 更新狀態顯示
+                document.getElementById('currentPostureStatus').textContent = postureStatus;
+                document.getElementById('currentPostureStatus').className = `posture-status ${postureStatus}`;
+                
+            } else {
+                throw new Error('Failed to get posture status');
+            }
+        } catch (error) {
+            console.error('Error checking posture:', error);
+        }
     }
 
-    showWaterReminder() {
-        const messages = [
-            '該喝水了！保持身體水分充足',
-            '記得補充水分哦',
-            '來一杯水吧，身體需要水分',
-            '喝水時間到！健康很重要',
-            '別忘了喝水，保持健康習慣'
-        ];
+    // 檢查喝水時間並發送提醒
+    async checkWaterAndRemind() {
+        if (!this.isPostureApiConnected || !this.isWaterReminderActive) {
+            return;
+        }
 
-        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-        
-        window.inlistedApp.showNotification('喝水提醒', randomMessage);
-        
-        // Optional: Show visual reminder in the app
-        this.showInAppReminder('water', randomMessage);
+        try {
+            const response = await fetch(`${this.postureApiUrl}/get_last_drink_time`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const drinkTime = new Date(data.year, data.month - 1, data.day, data.hour, data.minute, data.second);
+                const now = new Date();
+                const timeDiff = now - drinkTime;
+                const minutesAgo = Math.floor(timeDiff / (1000 * 60));
+                
+                // 更新顯示
+                const timeStr = drinkTime.toLocaleString('zh-TW');
+                document.getElementById('lastDrinkTime').textContent = timeStr;
+                
+                // 如果超過設定的間隔時間，發送提醒
+                if (minutesAgo >= this.waterReminderInterval) {
+                    const messages = [
+                        `您已經 ${minutesAgo} 分鐘沒有喝水了！記得補充水分哦`,
+                        `該喝水了！距離上次喝水已經過了 ${minutesAgo} 分鐘`,
+                        `身體需要水分！您已經 ${minutesAgo} 分鐘沒喝水了`,
+                        `健康提醒：請補充水分，已經 ${minutesAgo} 分鐘沒喝水了`
+                    ];
+                    
+                    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+                    this.showNotification('💧 喝水提醒', randomMessage);
+                    
+                    // 也顯示應用內提醒
+                    this.showInAppReminder('water', randomMessage);
+                }
+                
+            } else {
+                throw new Error('Failed to get last drink time');
+            }
+        } catch (error) {
+            console.error('Error checking water time:', error);
+        }
     }
 
     showInAppReminder(type, message) {
@@ -243,19 +399,7 @@ class HealthReminder {
         }
     }
 
-    updateFeatureStatus(feature, isEnabled) {
-        const statusElement = document.getElementById(`${feature}Status`);
-        if (isEnabled) {
-            const interval = document.getElementById(`${feature}Interval`).value;
-            statusElement.textContent = `已啟用 (每 ${interval} 分鐘)`;
-            statusElement.style.background = 'linear-gradient(135deg, #27ae60, #16a085)';
-            statusElement.style.color = 'white';
-        } else {
-            statusElement.textContent = '未啟用';
-            statusElement.style.background = '#e9ecef';
-            statusElement.style.color = '#666';
-        }
-    }
+    // 移除此方法，因為不再需要
 
     saveWaterData() {
         localStorage.setItem('daily-water-count', this.waterCount.toString());
@@ -264,10 +408,7 @@ class HealthReminder {
 
     saveSettings() {
         const settings = {
-            postureEnabled: document.getElementById('postureToggle').checked,
-            postureInterval: document.getElementById('postureInterval').value,
-            waterEnabled: document.getElementById('waterToggle').checked,
-            waterInterval: document.getElementById('waterInterval').value
+            waterInterval: this.waterReminderInterval
         };
         localStorage.setItem('health-reminder-settings', JSON.stringify(settings));
     }
@@ -275,27 +416,12 @@ class HealthReminder {
     loadSettings() {
         const settings = JSON.parse(localStorage.getItem('health-reminder-settings')) || {};
         
-        if (settings.postureEnabled) {
-            document.getElementById('postureToggle').checked = true;
-            this.startPostureReminder();
-        }
-        
-        if (settings.postureInterval) {
-            document.getElementById('postureInterval').value = settings.postureInterval;
-        }
-        
-        if (settings.waterEnabled) {
-            document.getElementById('waterToggle').checked = true;
-            this.startWaterReminder();
-        }
-        
         if (settings.waterInterval) {
-            document.getElementById('waterInterval').value = settings.waterInterval;
+            this.waterReminderInterval = settings.waterInterval;
+            if (document.getElementById('waterInterval')) {
+                document.getElementById('waterInterval').value = settings.waterInterval;
+            }
         }
-
-        // Update status displays
-        this.updateFeatureStatus('posture', settings.postureEnabled || false);
-        this.updateFeatureStatus('water', settings.waterEnabled || false);
     }
 
     // Get health statistics (for future analytics)
@@ -345,203 +471,6 @@ class HealthReminder {
                 element.className = 'api-status disconnected';
             }
         });
-    }
-
-    async startPostureDetection() {
-        if (!this.isPostureApiConnected) {
-            this.showNotification('錯誤', 'API 未連線，無法啟動姿勢檢測');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.postureApiUrl}/start_posture_test`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.showNotification('姿勢檢測啟動', data.message);
-                document.getElementById('postureDetectionStatus').textContent = '檢測中...';
-                document.getElementById('postureDetectionStatus').className = 'detection-status active';
-            } else {
-                throw new Error('Failed to start posture detection');
-            }
-        } catch (error) {
-            console.error('Error starting posture detection:', error);
-            this.showNotification('錯誤', '無法啟動姿勢檢測');
-        }
-    }
-
-    async stopPostureDetection() {
-        if (!this.isPostureApiConnected) {
-            this.showNotification('錯誤', 'API 未連線');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.postureApiUrl}/stop_posture_test`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.showNotification('姿勢檢測停止', data.message);
-                document.getElementById('postureDetectionStatus').textContent = '未檢測';
-                document.getElementById('postureDetectionStatus').className = 'detection-status inactive';
-            } else {
-                throw new Error('Failed to stop posture detection');
-            }
-        } catch (error) {
-            console.error('Error stopping posture detection:', error);
-            this.showNotification('錯誤', '無法停止姿勢檢測');
-        }
-    }
-
-    async checkCurrentPosture() {
-        if (!this.isPostureApiConnected) {
-            this.showNotification('錯誤', 'API 未連線，無法檢查姿勢');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.postureApiUrl}/get_posture`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                const postureStatus = data.posture;
-                
-                document.getElementById('currentPostureStatus').textContent = postureStatus;
-                
-                let message = '';
-                
-                if (postureStatus === 'good') {
-                    message = '您的坐姿很棒！請繼續保持';
-                    document.getElementById('currentPostureStatus').className = 'posture-status good';
-                } else if (postureStatus === 'bad') {
-                    message = '請注意您的坐姿，建議調整一下';
-                    document.getElementById('currentPostureStatus').className = 'posture-status bad';
-                } else {
-                    message = `目前姿勢狀態：${postureStatus}`;
-                    document.getElementById('currentPostureStatus').className = 'posture-status unknown';
-                }
-                
-                this.showNotification('姿勢檢查結果', message);
-            } else {
-                throw new Error('Failed to get posture status');
-            }
-        } catch (error) {
-            console.error('Error checking posture:', error);
-            this.showNotification('錯誤', '無法獲取姿勢狀態');
-        }
-    }
-
-    async startDrinkingDetection() {
-        if (!this.isPostureApiConnected) {
-            this.showNotification('錯誤', 'API 未連線，無法啟動喝水檢測');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.postureApiUrl}/start_drinking_test`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.showNotification('喝水檢測啟動', data.message);
-                document.getElementById('drinkingDetectionStatus').textContent = '檢測中...';
-                document.getElementById('drinkingDetectionStatus').className = 'detection-status active';
-            } else {
-                throw new Error('Failed to start drinking detection');
-            }
-        } catch (error) {
-            console.error('Error starting drinking detection:', error);
-            this.showNotification('錯誤', '無法啟動喝水檢測');
-        }
-    }
-
-    async stopDrinkingDetection() {
-        if (!this.isPostureApiConnected) {
-            this.showNotification('錯誤', 'API 未連線');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.postureApiUrl}/stop_drinking_test`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.showNotification('喝水檢測停止', data.message);
-                document.getElementById('drinkingDetectionStatus').textContent = '未檢測';
-                document.getElementById('drinkingDetectionStatus').className = 'detection-status inactive';
-            } else {
-                throw new Error('Failed to stop drinking detection');
-            }
-        } catch (error) {
-            console.error('Error stopping drinking detection:', error);
-            this.showNotification('錯誤', '無法停止喝水檢測');
-        }
-    }
-
-    async checkLastDrinkTime() {
-        if (!this.isPostureApiConnected) {
-            this.showNotification('錯誤', 'API 未連線，無法檢查上次喝水時間');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${this.postureApiUrl}/get_last_drink_time`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                const drinkTime = new Date(data.year, data.month - 1, data.day, data.hour, data.minute, data.second);
-                const now = new Date();
-                const timeDiff = now - drinkTime;
-                const minutesAgo = Math.floor(timeDiff / (1000 * 60));
-                
-                const timeStr = drinkTime.toLocaleString('zh-TW');
-                document.getElementById('lastDrinkTime').textContent = timeStr;
-                
-                let message = '';
-                if (minutesAgo < 60) {
-                    message = `上次喝水是 ${minutesAgo} 分鐘前`;
-                } else if (minutesAgo < 1440) {
-                    const hoursAgo = Math.floor(minutesAgo / 60);
-                    message = `上次喝水是 ${hoursAgo} 小時前`;
-                } else {
-                    const daysAgo = Math.floor(minutesAgo / 1440);
-                    message = `上次喝水是 ${daysAgo} 天前`;
-                }
-                
-                this.showNotification('上次喝水時間', message);
-                
-                // 如果超過2小時沒喝水，提醒使用者
-                if (minutesAgo > 120) {
-                    setTimeout(() => {
-                        this.showNotification('喝水提醒', '您已經很久沒有喝水了，記得補充水分哦！');
-                    }, 1000);
-                }
-            } else {
-                throw new Error('Failed to get last drink time');
-            }
-        } catch (error) {
-            console.error('Error checking last drink time:', error);
-            this.showNotification('錯誤', '無法獲取上次喝水時間');
-        }
     }
 
     // Helper method for notifications
