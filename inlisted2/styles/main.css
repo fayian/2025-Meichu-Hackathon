@@ -1480,3 +1480,314 @@ input:checked + .slider:before {
         page-break-after: auto;
     }
 }
+
+/* AI Detection Features Styles */
+.ai-detection {
+    border: 2px solid #667eea;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-detection::before {
+    content: "AI";
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: var(--primary-gradient);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 1;
+}
+
+.feature-description {
+    margin: var(--space-sm) 0 var(--space-md) 0;
+    padding: var(--space-md);
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: var(--radius-md);
+    border-left: 4px solid #667eea;
+}
+
+.feature-description p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.ai-controls {
+    display: flex;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+    flex-wrap: wrap;
+}
+
+.ai-controls .btn {
+    flex: 1;
+    min-width: 120px;
+    font-size: 0.85rem;
+    padding: 0.75rem 1rem;
+}
+
+.detection-status {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-align: center;
+    min-width: 100px;
+    transition: all 0.3s ease;
+}
+
+.detection-status.active {
+    background: linear-gradient(135deg, #27ae60, #16a085);
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+.detection-status.inactive {
+    background: #e9ecef;
+    color: #666;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.posture-result,
+.drink-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: var(--space-md);
+    padding: var(--space-md);
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.posture-status {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.posture-status.good {
+    background: linear-gradient(135deg, #27ae60, #16a085);
+    color: white;
+}
+
+.posture-status.bad {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.posture-status.unknown {
+    background: #e9ecef;
+    color: #666;
+}
+
+.last-drink-time {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.api-status {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-lg);
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.api-status::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.api-status.connected {
+    background: linear-gradient(135deg, #27ae60, #16a085);
+    color: white;
+}
+
+.api-status.connected::before {
+    background: #fff;
+    animation: pulse 2s infinite;
+}
+
+.api-status.disconnected {
+    background: #e9ecef;
+    color: #666;
+}
+
+.api-status.disconnected::before {
+    background: #e74c3c;
+}
+
+/* Enhanced section header for health reminder */
+#health-reminder .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-xl);
+}
+
+/* Responsive adjustments for AI features */
+@media (max-width: 768px) {
+    .ai-controls {
+        flex-direction: column;
+    }
+    
+    .ai-controls .btn {
+        flex: none;
+        width: 100%;
+    }
+    
+    .posture-result,
+    .drink-result {
+        flex-direction: column;
+        gap: var(--space-sm);
+        text-align: center;
+    }
+    
+    #health-reminder .section-header {
+        flex-direction: column;
+        gap: var(--space-md);
+        align-items: flex-start;
+    }
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.show .modal-content {
+    transform: scale(1);
+}
+
+
+#scheduleResultContent h2 {
+    margin-top: 0;
+    font-size: 1.8rem;
+}
+
+#scheduleResultContent .icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.icon.success {
+    color: #28a745; /* 綠色 */
+}
+
+.icon.warning {
+    color: #ffc107; /* 黃色 */
+}
+
+#scheduleResultContent ul {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 1rem;
+    padding: 0.5rem;
+}
+
+#scheduleResultContent li {
+    padding: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+#scheduleResultContent li:last-child {
+    border-bottom: none;
+}
+
+#closeScheduleResultBtn {
+    margin-top: 1.5rem;
+}
+
+.loader-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    flex-direction: column; /* 讓文字在 spinner 下方 */
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* 確保在最上層 */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.loader-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+.loader-text {
+    color: #fff;
+    margin-top: 20px;
+    font-size: 1.1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

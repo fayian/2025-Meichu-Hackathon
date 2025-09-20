@@ -119,3 +119,7 @@ async def get_last_drink_time():
         minute=last_drink_time.tm_min,
         second=last_drink_time.tm_sec
     )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)

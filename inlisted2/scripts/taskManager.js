@@ -4,6 +4,34 @@ class TaskManager {
     this.tasks = JSON.parse(localStorage.getItem("inlisted-tasks")) || [];
     this.currentFilter = "all";
     this.init();
+    this.initModalsAndLoader();
+  }
+
+  initModalsAndLoader() {
+    this.resultModal = document.getElementById("scheduleResultModal");
+    this.resultContent = document.getElementById("scheduleResultContent");
+    const closeBtn = document.getElementById("closeScheduleResultBtn");
+
+    closeBtn.addEventListener("click", () => this.hideResultModal());
+    this.resultModal.addEventListener("click", (e) => {
+      if (e.target === this.resultModal) this.hideResultModal();
+    });
+
+    this.loader = document.getElementById("loader");
+  }
+
+  showResultModal(content) {
+    this.resultContent.innerHTML = content;
+    this.resultModal.style.display = 'flex';
+    setTimeout(() => this.resultModal.classList.add("show"), 10);
+  }
+
+  hideResultModal() {
+    this.resultModal.classList.remove("show");
+    setTimeout(() => {
+        this.resultModal.style.display = 'none';
+        this.resultContent.innerHTML = '';
+    }, 300);
   }
 
   init() {
@@ -15,6 +43,10 @@ class TaskManager {
     // Add task button
     document.getElementById("addTaskBtn").addEventListener("click", () => {
       this.showTaskModal();
+    });
+
+    document.getElementById("scheduleTasksBtn").addEventListener("click", () => {
+    this.scheduleTasks();
     });
 
     // Task form submission
@@ -38,7 +70,7 @@ class TaskManager {
         this.currentFilter = btn.dataset.filter;
         this.renderTasks();
       });
-    });
+    });    
   }
 
   showTaskModal() {
@@ -293,6 +325,82 @@ class TaskManager {
       "功能開發中",
       "Google日曆整合功能正在開發中"
     );
+  }
+
+  async scheduleTasks() {
+    const tasksToSchedule = this.tasks.filter(task => !task.completed);
+
+    if (tasksToSchedule.length === 0) {
+      window.inlistedApp.showNotification("沒有待辦任務", "目前沒有需要排程的任務。");
+      return;
+    }
+
+    this.showLoader();
+
+    try {
+      const response = await fetch('http://localhost:8000/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(tasksToSchedule),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.detail || '排程時發生未知錯誤');
+      }
+      
+      // 根據回傳結果顯示對應畫面
+      if (result.failed.length === 0) {
+        // 全部成功
+        const successContent = `
+            <div class="icon success"><i class="fas fa-check-circle"></i></div>
+            <h2>排程成功！</h2>
+            <p>所有 ${result.successful.length} 個任務都已成功排入您的行事曆。</p>
+        `;
+        this.showResultModal(successContent);
+      } else {
+        // 部分或全部失敗
+        let failedListItems = result.failed.map(task => 
+            `<li><strong>${task.name}</strong>: ${task.reason}</li>`
+        ).join('');
+        
+        const warningContent = `
+            <div class="icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+            <h2>排程完成，但有部分問題</h2>
+            <p><strong>${result.successful.length}</strong> 個任務成功, <strong>${result.failed.length}</strong> 個任務失敗。</p>
+            <p>以下是失敗的任務列表：</p>
+            <ul>${failedListItems}</ul>
+        `;
+        this.showResultModal(warningContent);
+      }
+
+    } catch (error) {
+      console.error('Error scheduling tasks:', error);
+      // 嚴重錯誤，例如 API 連線失敗
+      const errorContent = `
+            <div class="icon warning"><i class="fas fa-times-circle" style="color: #dc3545;"></i></div>
+            <h2>排程失敗</h2>
+            <p>無法連接到排程服務，請檢查後端伺服器是否正在運行。</p>
+            <p><small>${error.message}</small></p>
+      `;
+      this.showResultModal(errorContent);
+    } finally {
+      // 2. 無論成功或失敗，最後都要隱藏載入動畫
+      this.hideLoader();
+    }
+  }
+
+  showLoader() {
+    this.loader.style.display = 'flex';
+    setTimeout(() => this.loader.classList.add("show"), 10);
+  }
+
+  hideLoader() {
+    this.loader.classList.remove("show");
+    setTimeout(() => {
+        this.loader.style.display = 'none';
+    }, 300); // 配合 CSS 的 transition 時間
   }
 }
 

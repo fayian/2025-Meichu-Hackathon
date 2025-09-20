@@ -4,9 +4,11 @@
   "description": "Smart Pomodoro Timer with AI-powered suggestions",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "concurrently \"npm run python\" \"npm run electron\"",
+    "dev": "concurrently \"npm run python\" \"electron . --dev\"",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "electron": "electron .",
+    "python": "python ../api/main.py"
   },
   "keywords": [
     "pomodoro",
@@ -21,6 +23,7 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "concurrently": "^7.6.0",
     "electron": "^38.1.2"
   }
 }
