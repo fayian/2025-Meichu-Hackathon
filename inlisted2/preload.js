@@ -2,13 +2,22 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
+contextBridge.exposeInMainWorld("ipcRenderer", {
+  onNewTask: (callback) =>
+    ipcRenderer.on("new-task", (event, data) => callback(data)),
+  onWebsocketServerActive: (callback) =>
+    ipcRenderer.on("websocket-server-active", (event, status) =>
+      callback(status)
+    ),
+});
+
 contextBridge.exposeInMainWorld("electronAPI", {
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
-  
+
   // AI state persistence
-  saveAIState: (state) => ipcRenderer.invoke('save-ai-state', state),
-  loadAIState: () => ipcRenderer.invoke('load-ai-state'),
-  clearAIState: () => ipcRenderer.invoke('clear-ai-state'),
+  saveAIState: (state) => ipcRenderer.invoke("save-ai-state", state),
+  loadAIState: () => ipcRenderer.invoke("load-ai-state"),
+  clearAIState: () => ipcRenderer.invoke("clear-ai-state"),
 
   // WebSocket Server Control APIs
   websocket: {},
