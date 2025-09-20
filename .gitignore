@@ -1,0 +1,148 @@
+# ---------------------------
+# Node / 基本
+# ---------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# ---------------------------
+# TypeScript / 編譯產物
+# ---------------------------
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ---------------------------
+# 打包 / 產出（Electron 常見）
+# ---------------------------
+dist/
+out/
+release/
+app/dist/
+packages/*/dist
+.webpack/
+.vite/
+vite.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+
+# electron-builder 產物與發布檔
+*.dmg
+*.exe
+*.msi
+*.AppImage
+*.snap
+*.deb
+*.rpm
+*.pkg
+*.zip
+*.7z
+*.blockmap
+latest*.yml
+builder-debug.yml
+
+# electron-forge
+forge.out/
+out/
+
+# 若你的專案使用 build/ 放置配置或 icon，請保留需要的檔案：
+build/
+!build/*.yml
+!build/*.json
+!build/icons/**
+!build/icon.*
+!build/**/icon.*
+
+# ---------------------------
+# 測試 / 覆蓋率
+# ---------------------------
+coverage/
+.c8/
+nyc_output/
+test-results/
+junit.xml
+
+# ---------------------------
+# 環境變數 / 憑證（切勿提交）
+# ---------------------------
+.env
+.env.*.local
+*.local.env
+*.key
+*.pem
+*.pfx
+*.p12
+certs/
+secrets/
+.keystore/
+.key-store/
+
+# ---------------------------
+# IDE / 編輯器
+# ---------------------------
+# VS Code：允許設定與工作檔（可與團隊共享）留存時可解除註解
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+.idea/
+*.iml
+
+# ---------------------------
+# 作業系統雜物
+# ---------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+Icon
+ 
+$RECYCLE.BIN/
+
+# ---------------------------
+# 暫存 / 快取
+# ---------------------------
+.tmp/
+temp/
+tmp/
+.cache/
+.npm/
+.yarn/
+.pnpm-store/
+.eslintcache
+.stylelintcache
+
+# ---------------------------
+# Crash / Dump
+# ---------------------------
+*.dmp
+*.stackdump
+*.crash
+crashpad/
+
+# ---------------------------
+# Python 虛擬環境（若你有混用工具）
+# ---------------------------
+.venv/
+
+# ---------------------------
+# Git 本地機密設定
+# ---------------------------
+.git-credentials
+.gitconfig.local
+
+# ---------------------------
+# 鎖檔（務必提交，故特別保留）
+# ---------------------------
+!package-lock.json
+!yarn.lock
+!pnpm-lock.yaml
