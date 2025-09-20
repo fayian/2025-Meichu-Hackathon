@@ -249,12 +249,66 @@
           <section id="health-reminder" class="content-section">
             <div class="section-header">
               <h2>健康提醒</h2>
+              <div class="api-status disconnected">API 未連線</div>
             </div>
 
             <div class="health-features">
+              <!-- 智能姿勢檢測 -->
+              <div class="health-feature ai-detection">
+                <div class="feature-header">
+                  <h3>� 智能姿勢檢測</h3>
+                  <div class="detection-status inactive" id="postureDetectionStatus">未檢測</div>
+                </div>
+                <div class="feature-description">
+                  <p>使用 AI 視覺檢測技術，即時監控您的坐姿狀態</p>
+                </div>
+                <div class="ai-controls">
+                  <button class="btn btn-success" id="startPostureDetectionBtn">
+                    <i class="fas fa-play"></i> 開始檢測
+                  </button>
+                  <button class="btn btn-danger" id="stopPostureDetectionBtn">
+                    <i class="fas fa-stop"></i> 停止檢測
+                  </button>
+                  <button class="btn btn-info" id="checkPostureBtn">
+                    <i class="fas fa-search"></i> 檢查姿勢
+                  </button>
+                </div>
+                <div class="posture-result">
+                  <span>目前姿勢狀態：</span>
+                  <span class="posture-status unknown" id="currentPostureStatus">未知</span>
+                </div>
+              </div>
+
+              <!-- 智能喝水檢測 -->
+              <div class="health-feature ai-detection">
+                <div class="feature-header">
+                  <h3>💧 智能喝水檢測</h3>
+                  <div class="detection-status inactive" id="drinkingDetectionStatus">未檢測</div>
+                </div>
+                <div class="feature-description">
+                  <p>自動檢測您的喝水行為，幫助維持良好的水分攝取習慣</p>
+                </div>
+                <div class="ai-controls">
+                  <button class="btn btn-success" id="startDrinkingDetectionBtn">
+                    <i class="fas fa-play"></i> 開始檢測
+                  </button>
+                  <button class="btn btn-danger" id="stopDrinkingDetectionBtn">
+                    <i class="fas fa-stop"></i> 停止檢測
+                  </button>
+                  <button class="btn btn-info" id="checkLastDrinkBtn">
+                    <i class="fas fa-clock"></i> 上次喝水時間
+                  </button>
+                </div>
+                <div class="drink-result">
+                  <span>上次喝水時間：</span>
+                  <span class="last-drink-time" id="lastDrinkTime">未記錄</span>
+                </div>
+              </div>
+
+              <!-- 傳統提醒功能 -->
               <div class="health-feature">
                 <div class="feature-header">
-                  <h3>🧘 坐姿檢查</h3>
+                  <h3>⏰ 坐姿提醒</h3>
                   <label class="toggle-switch">
                     <input type="checkbox" id="postureToggle" />
                     <span class="slider"></span>
