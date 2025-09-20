@@ -1,17 +1,23 @@
 {
   "name": "inlisted2",
   "version": "1.0.0",
-  "description": "",
+  "description": "Smart Pomodoro Timer with AI-powered suggestions",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["pomodoro", "productivity", "ai", "electron"],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
   "devDependencies": {
     "electron": "^38.1.2"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
   }
 }

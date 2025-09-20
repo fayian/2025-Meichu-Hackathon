@@ -1,124 +1,189 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Inlisted - 智能待辦事項管理工具</title>
     <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/smart-pomodoro.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Header with current date and time -->
-        <header class="app-header">
-            <div class="logo">
-                <i class="fas fa-list-check"></i>
-                <h1>Inlisted</h1>
+      <!-- Header with current date and time -->
+      <header class="app-header">
+        <div class="logo">
+          <i class="fas fa-list-check"></i>
+          <h1>Inlisted</h1>
+        </div>
+        <div class="datetime-display">
+          <div class="current-date" id="currentDate"></div>
+          <div class="current-time" id="currentTime"></div>
+          <div
+            class="status-indicators"
+            style="
+              margin-top: 0.5rem;
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+              font-size: 0.75rem;
+              color: var(--text-tertiary);
+            "
+          >
+            <span><span class="status-indicator active"></span>應用運行中</span>
+            <span id="websocket-status"
+              ><span class="status-indicator inactive"></span
+              >Websocket狀態</span
+            >
+          </div>
+        </div>
+      </header>
+
+      <div class="main-content">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+          <ul class="nav-menu">
+            <li class="nav-item active" data-section="task-manager">
+              <i class="fas fa-tasks"></i>
+              <span>Task Manager</span>
+            </li>
+            <li class="nav-item" data-section="pomodoro">
+              <i class="fas fa-clock"></i>
+              <span>番茄鐘</span>
+            </li>
+            <li class="nav-item" data-section="health-reminder">
+              <i class="fas fa-heart-pulse"></i>
+              <span>健康提醒</span>
+            </li>
+            <li class="nav-item" data-section="image-qa">
+              <i class="fas fa-image"></i>
+              <span>圖片問答</span>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+          <!-- Task Manager Section -->
+          <section id="task-manager" class="content-section active">
+            <div class="section-header">
+              <h2>Task Manager</h2>
+              <button class="btn btn-primary" id="addTaskBtn">
+                <i class="fas fa-plus"></i> 新增任務
+              </button>
             </div>
-            <div class="datetime-display">
-                <div class="current-date" id="currentDate"></div>
-                <div class="current-time" id="currentTime"></div>
-                <div class="status-indicators" style="margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem; font-size: 0.75rem; color: var(--text-tertiary);">
-                    <span><span class="status-indicator active"></span>應用運行中</span>
-                    <span id="connectionStatus"><span class="status-indicator inactive"></span>離線模式</span>
+
+            <div class="task-filters">
+              <button class="filter-btn active" data-filter="all">全部</button>
+              <button class="filter-btn" data-filter="high">高優先級</button>
+              <button class="filter-btn" data-filter="medium">中優先級</button>
+              <button class="filter-btn" data-filter="low">低優先級</button>
+              <button class="filter-btn" data-filter="overdue">逾期</button>
+            </div>
+
+            <div class="task-list" id="taskList">
+              <!-- Task items will be dynamically generated here -->
+            </div>
+
+            <!-- Add Task Modal -->
+            <div class="modal" id="taskModal">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h3>新增任務</h3>
+                  <span class="close">&times;</span>
                 </div>
+                <form id="taskForm">
+                  <div class="form-group">
+                    <label for="taskName">任務名稱</label>
+                    <input type="text" id="taskName" name="taskName" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="taskDeadline">截止日期</label>
+                    <input
+                      type="datetime-local"
+                      id="taskDeadline"
+                      name="taskDeadline"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label for="taskPriority">重要程度</label>
+                    <select id="taskPriority" name="taskPriority">
+                      <option value="low">低</option>
+                      <option value="medium" selected>中</option>
+                      <option value="high">高</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="taskDuration">預估時間 (小時)</label>
+                    <input
+                      type="number"
+                      id="taskDuration"
+                      name="taskDuration"
+                      min="0.5"
+                      step="0.5"
+                      required
+                    />
+                  </div>
+                  <div class="form-actions">
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      id="cancelTaskBtn"
+                    >
+                      <i class="fas fa-times"></i> 取消
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                      <i class="fas fa-save"></i> 儲存任務
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-        </header>
-
-        <div class="main-content">
-            <!-- Sidebar Navigation -->
-            <nav class="sidebar">
-                <ul class="nav-menu">
-                    <li class="nav-item active" data-section="task-manager">
-                        <i class="fas fa-tasks"></i>
-                        <span>Task Manager</span>
-                    </li>
-                    <li class="nav-item" data-section="pomodoro">
-                        <i class="fas fa-clock"></i>
-                        <span>番茄鐘</span>
-                    </li>
-                    <li class="nav-item" data-section="health-reminder">
-                        <i class="fas fa-heart-pulse"></i>
-                        <span>健康提醒</span>
-                    </li>
-                    <li class="nav-item" data-section="image-qa">
-                        <i class="fas fa-image"></i>
-                        <span>圖片問答</span>
-                    </li>
-                </ul>
-            </nav>
-
-            <!-- Main Content Area -->
-            <main class="content-area">
-                <!-- Task Manager Section -->
-                <section id="task-manager" class="content-section active">
-                    <div class="section-header">
-                        <h2>Task Manager</h2>
-                        <button class="btn btn-primary" id="addTaskBtn">
-                            <i class="fas fa-plus"></i> 新增任務
-                        </button>
-                    </div>
-                    
-                    <div class="task-filters">
-                        <button class="filter-btn active" data-filter="all">全部</button>
-                        <button class="filter-btn" data-filter="high">高優先級</button>
-                        <button class="filter-btn" data-filter="medium">中優先級</button>
-                        <button class="filter-btn" data-filter="low">低優先級</button>
-                        <button class="filter-btn" data-filter="overdue">逾期</button>
-                    </div>
-
-                    <div class="task-list" id="taskList">
-                        <!-- Task items will be dynamically generated here -->
-                    </div>
-
-                    <!-- Add Task Modal -->
-                    <div class="modal" id="taskModal">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h3>新增任務</h3>
-                                <span class="close">&times;</span>
-                            </div>
-                            <form id="taskForm">
-                                <div class="form-group">
-                                    <label for="taskName">任務名稱</label>
-                                    <input type="text" id="taskName" name="taskName" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="taskDeadline">截止日期</label>
-                                    <input type="datetime-local" id="taskDeadline" name="taskDeadline" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="taskPriority">重要程度</label>
-                                    <select id="taskPriority" name="taskPriority">
-                                        <option value="low">低</option>
-                                        <option value="medium" selected>中</option>
-                                        <option value="high">高</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="taskDuration">預估時間 (小時)</label>
-                                    <input type="number" id="taskDuration" name="taskDuration" min="0.5" step="0.5" required>
-                                </div>
-                                <div class="form-actions">
-                                    <button type="button" class="btn btn-secondary" id="cancelTaskBtn">
-                                        <i class="fas fa-times"></i> 取消
-                                    </button>
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="fas fa-save"></i> 儲存任務
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </section>
+          </section>
 
                 <!-- Pomodoro Timer Section -->
                 <section id="pomodoro" class="content-section">
                     <div class="section-header">
-                        <h2>番茄鐘</h2>
+                        <h2>智能番茄鐘</h2>
+                    </div>
+                    
+                    <!-- Smart Context Panel -->
+                    <div class="smart-context-panel">
+                        <h3>📊 當前狀態</h3>
+                        <div class="context-controls">
+                            <div class="context-item">
+                                <label for="moodSelect">心情狀態：</label>
+                                <select id="moodSelect">
+                                    <option value="good">😊 良好</option>
+                                    <option value="neutral" selected>😐 一般</option>
+                                    <option value="poor">😞 疲憊</option>
+                                </select>
+                            </div>
+                            <div class="context-item">
+                                <label for="taskEstimateInput">任務預估（分鐘）：</label>
+                                <input type="number" id="taskEstimateInput" value="25" min="5" max="120">
+                            </div>
+                            <div class="context-item">
+                                <label for="taskImportanceSelect">重要程度：</label>
+                                <select id="taskImportanceSelect">
+                                    <option value="low">低</option>
+                                    <option value="medium" selected>中</option>
+                                    <option value="high">高</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="pomodoro-container">
+                        <!-- Smart Suggestion -->
+                        <div class="smart-suggestion">
+                            <button class="btn btn-smart" id="smartSuggestionBtn">
+                                🧠 智能建議
+                            </button>
+                            <div id="aiExplanation" class="ai-explanation" style="display: none;"></div>
+                        </div>
+
                         <div class="timer-display">
                             <div class="timer-circle">
                                 <div class="timer-text" id="timerDisplay">25:00</div>
@@ -137,13 +202,25 @@
                             </button>
                         </div>
 
+                        <!-- User Feedback -->
+                        <div class="user-feedback">
+                            <h4>這個時長感覺如何？</h4>
+                            <div class="feedback-buttons">
+                                <button class="btn feedback-btn" data-feedback="too_short">⏱️ 太短</button>
+                                <button class="btn feedback-btn" data-feedback="just_right">✅ 剛好</button>
+                                <button class="btn feedback-btn" data-feedback="too_long">⏰ 太長</button>
+                            </div>
+                        </div>
+
                         <div class="timer-presets">
                             <h3>預設時間</h3>
                             <div class="preset-buttons">
-                                <button class="preset-btn" data-minutes="25">25 分鐘</button>
-                                <button class="preset-btn" data-minutes="15">15 分鐘</button>
-                                <button class="preset-btn" data-minutes="45">45 分鐘</button>
-                                <button class="preset-btn" data-minutes="60">60 分鐘</button>
+                                <button class="preset-btn" data-minutes="15">15分</button>
+                                <button class="preset-btn" data-minutes="20">20分</button>
+                                <button class="preset-btn" data-minutes="25">25分</button>
+                                <button class="preset-btn" data-minutes="30">30分</button>
+                                <button class="preset-btn" data-minutes="40">40分</button>
+                                <button class="preset-btn" data-minutes="50">50分</button>
                             </div>
                         </div>
 
@@ -155,100 +232,138 @@
                                 <button class="btn btn-secondary" id="setCustomTimeBtn">設定</button>
                             </div>
                         </div>
-                    </div>
-                </section>
 
-                <!-- Health Reminder Section -->
-                <section id="health-reminder" class="content-section">
-                    <div class="section-header">
-                        <h2>健康提醒</h2>
-                    </div>
-                    
-                    <div class="health-features">
-                        <div class="health-feature">
-                            <div class="feature-header">
-                                <h3>🧘 坐姿檢查</h3>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="postureToggle">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="feature-settings">
-                                <label>檢查間隔 (分鐘):</label>
-                                <input type="number" id="postureInterval" min="5" max="120" value="30">
-                            </div>
-                            <div class="feature-status" id="postureStatus">未啟用</div>
-                        </div>
-
-                        <div class="health-feature">
-                            <div class="feature-header">
-                                <h3>💧 喝水提醒</h3>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="waterToggle">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            <div class="feature-settings">
-                                <label>提醒間隔 (分鐘):</label>
-                                <input type="number" id="waterInterval" min="15" max="180" value="60">
-                            </div>
-                            <div class="feature-status" id="waterStatus">未啟用</div>
-                        </div>
-
-                        <div class="water-tracker">
-                            <h3>今日飲水記錄</h3>
-                            <div class="water-display">
-                                <div class="water-amount" id="waterAmount">0</div>
-                                <div class="water-unit">杯</div>
-                            </div>
-                            <button class="btn btn-primary" id="addWaterBtn">
-                                <i class="fas fa-plus"></i> 記錄一杯水
+                        <!-- AI Management -->
+                        <div class="ai-management">
+                            <button class="btn btn-warning" onclick="window.pomodoroTimer.smartAI.resetAI(); alert('AI學習已重置！');">
+                                🔄 重置AI學習
+                            </button>
+                            <button class="btn btn-info" onclick="alert(window.pomodoroTimer.smartAI.explainCurrentFatigue());">
+                                💪 查看疲勞狀態
                             </button>
                         </div>
                     </div>
                 </section>
 
-                <!-- Image Q&A Section -->
-                <section id="image-qa" class="content-section">
-                    <div class="section-header">
-                        <h2>圖片問答</h2>
-                    </div>
-                    
-                    <div class="image-qa-container">
-                        <div class="screenshot-area">
-                            <h3>截圖功能</h3>
-                            <button class="btn btn-primary" id="captureScreenBtn">
-                                <i class="fas fa-camera"></i> 截取螢幕
-                            </button>
-                            <div class="screenshot-preview" id="screenshotPreview" style="display: none;">
-                                <img id="screenshotImage" alt="截圖預覽">
-                            </div>
-                        </div>
+          <!-- Health Reminder Section -->
+          <section id="health-reminder" class="content-section">
+            <div class="section-header">
+              <h2>健康提醒</h2>
+            </div>
 
-                        <div class="qa-area">
-                            <h3>問答區域</h3>
-                            <div class="chat-container" id="chatContainer">
-                                <div class="chat-message system">
-                                    <p>歡迎使用圖片問答功能！請先截取螢幕，然後輸入您的問題。</p>
-                                </div>
-                            </div>
-                            <div class="chat-input">
-                                <input type="text" id="questionInput" placeholder="輸入您的問題..." disabled>
-                                <button class="btn btn-secondary" id="sendQuestionBtn" disabled>
-                                    <i class="fas fa-paper-plane"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </main>
-        </div>
+            <div class="health-features">
+              <div class="health-feature">
+                <div class="feature-header">
+                  <h3>🧘 坐姿檢查</h3>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="postureToggle" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="feature-settings">
+                  <label>檢查間隔 (分鐘):</label>
+                  <input
+                    type="number"
+                    id="postureInterval"
+                    min="5"
+                    max="120"
+                    value="30"
+                  />
+                </div>
+                <div class="feature-status" id="postureStatus">未啟用</div>
+              </div>
+
+              <div class="health-feature">
+                <div class="feature-header">
+                  <h3>💧 喝水提醒</h3>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="waterToggle" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="feature-settings">
+                  <label>提醒間隔 (分鐘):</label>
+                  <input
+                    type="number"
+                    id="waterInterval"
+                    min="15"
+                    max="180"
+                    value="60"
+                  />
+                </div>
+                <div class="feature-status" id="waterStatus">未啟用</div>
+              </div>
+
+              <div class="water-tracker">
+                <h3>今日飲水記錄</h3>
+                <div class="water-display">
+                  <div class="water-amount" id="waterAmount">0</div>
+                  <div class="water-unit">杯</div>
+                </div>
+                <button class="btn btn-primary" id="addWaterBtn">
+                  <i class="fas fa-plus"></i> 記錄一杯水
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Image Q&A Section -->
+          <section id="image-qa" class="content-section">
+            <div class="section-header">
+              <h2>圖片問答</h2>
+            </div>
+
+            <div class="image-qa-container">
+              <div class="screenshot-area">
+                <h3>截圖功能</h3>
+                <button class="btn btn-primary" id="captureScreenBtn">
+                  <i class="fas fa-camera"></i> 截取螢幕
+                </button>
+                <div
+                  class="screenshot-preview"
+                  id="screenshotPreview"
+                  style="display: none"
+                >
+                  <img id="screenshotImage" alt="截圖預覽" />
+                </div>
+              </div>
+
+              <div class="qa-area">
+                <h3>問答區域</h3>
+                <div class="chat-container" id="chatContainer">
+                  <div class="chat-message system">
+                    <p>
+                      歡迎使用圖片問答功能！請先截取螢幕，然後輸入您的問題。
+                    </p>
+                  </div>
+                </div>
+                <div class="chat-input">
+                  <input
+                    type="text"
+                    id="questionInput"
+                    placeholder="輸入您的問題..."
+                    disabled
+                  />
+                  <button
+                    class="btn btn-secondary"
+                    id="sendQuestionBtn"
+                    disabled
+                  >
+                    <i class="fas fa-paper-plane"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
 
     <script src="scripts/main.js"></script>
+    <script src="scripts/smartPomodoro.js"></script>
     <script src="scripts/taskManager.js"></script>
     <script src="scripts/pomodoro.js"></script>
     <script src="scripts/healthReminder.js"></script>
     <script src="scripts/imageQA.js"></script>
-</body>
+  </body>
 </html>
