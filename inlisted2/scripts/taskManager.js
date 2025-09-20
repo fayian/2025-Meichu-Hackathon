@@ -22,32 +22,82 @@ class TaskManager {
 
   showResultModal(content) {
     this.resultContent.innerHTML = content;
-    this.resultModal.style.display = 'flex';
+    this.resultModal.style.display = "flex";
     setTimeout(() => this.resultModal.classList.add("show"), 10);
   }
 
   hideResultModal() {
     this.resultModal.classList.remove("show");
     setTimeout(() => {
-        this.resultModal.style.display = 'none';
-        this.resultContent.innerHTML = '';
+      this.resultModal.style.display = "none";
+      this.resultContent.innerHTML = "";
     }, 300);
   }
 
   init() {
     this.setupEventListeners();
     this.renderTasks();
+    this.setupIpcListeners();
+  }
+
+  setupIpcListeners() {
+    // Listen for task submissions from popup window
+    window.ipcRenderer.onTaskSubmitted((taskData) => {
+      this.addTask(taskData);
+    });
+
+    // Listen for new task requests (from external sources like WebSocket)
+    window.ipcRenderer.onNewTask((taskData) => {
+      this.handleNewTaskRequest(taskData);
+    });
+  }
+
+  async handleNewTaskRequest(taskData = {}) {
+    try {
+      // Create popup window for task editing
+      await window.electronAPI.createNewTaskPopup(taskData);
+    } catch (error) {
+      console.error("Error creating new task popup:", error);
+      // Fallback to notification
+      window.inlistedApp.showNotification(
+        "新任務請求",
+        "收到新任務請求，但無法開啟編輯視窗"
+      );
+    }
+  }
+
+  addTask(taskData) {
+    // Add the task to the list
+    this.tasks.push(taskData);
+    this.saveTasks();
+    this.renderTasks();
+
+    // Show success notification
+    window.inlistedApp.showNotification(
+      "任務已新增",
+      `任務"${taskData.name}"已成功新增`
+    );
   }
 
   setupEventListeners() {
-    // Add task button
-    document.getElementById("addTaskBtn").addEventListener("click", () => {
-      this.showTaskModal();
-    });
+    // Add task button - now opens popup instead of modal
+    document
+      .getElementById("addTaskBtn")
+      .addEventListener("click", async () => {
+        try {
+          await window.electronAPI.createNewTaskPopup();
+        } catch (error) {
+          console.error("Error creating new task popup:", error);
+          // Fallback to original modal
+          this.showTaskModal();
+        }
+      });
 
-    document.getElementById("scheduleTasksBtn").addEventListener("click", () => {
-    this.scheduleTasks();
-    });
+    document
+      .getElementById("scheduleTasksBtn")
+      .addEventListener("click", () => {
+        this.scheduleTasks();
+      });
 
     // Task form submission
     document.getElementById("taskForm").addEventListener("submit", (e) => {
@@ -70,7 +120,7 @@ class TaskManager {
         this.currentFilter = btn.dataset.filter;
         this.renderTasks();
       });
-    });    
+    });
   }
 
   showTaskModal() {
@@ -328,20 +378,23 @@ class TaskManager {
   }
 
   async scheduleTasks() {
-    const tasksToSchedule = this.tasks.filter(task => !task.completed);
+    const tasksToSchedule = this.tasks.filter((task) => !task.completed);
 
     if (tasksToSchedule.length === 0) {
-      window.inlistedApp.showNotification("沒有待辦任務", "目前沒有需要排程的任務。");
+      window.inlistedApp.showNotification(
+        "沒有待辦任務",
+        "目前沒有需要排程的任務。"
+      );
       return;
     }
-    
+
     this.showLoader();
 
     try {
       // 1. 呼叫新的 API 端點
-      const response = await fetch('http://localhost:8000/schedule-and-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("http://localhost:8000/schedule-and-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(tasksToSchedule),
       });
 
@@ -349,26 +402,25 @@ class TaskManager {
       const syncedTasks = await response.json();
 
       if (!response.ok) {
-        // .detail 是 FastAPI 錯誤的標準欄位
-        throw new Error(syncedTasks.detail || '排程時發生未知錯誤');
+        throw new Error(result.detail || "排程時發生未知錯誤");
       }
-      
+
       // 3. 直接用後端回傳的列表覆蓋前端的任務列表
       // 注意：後端回傳的格式可能和前端稍有不同，我們在這裡進行對應
-      this.tasks = syncedTasks.map(task => ({
-          id: task.id, // 使用 Google Calendar Event ID
-          name: task.name,
-          deadline: task.deadline,
-          priority: task.priority,
-          duration: task.duration,
-          completed: task.completed,
-          createdAt: task.createdAt
+      this.tasks = syncedTasks.map((task) => ({
+        id: task.id, // 使用 Google Calendar Event ID
+        name: task.name,
+        deadline: task.deadline,
+        priority: task.priority,
+        duration: task.duration,
+        completed: task.completed,
+        createdAt: task.createdAt,
       }));
 
       // 4. 保存並重新渲染
       this.saveTasks();
       this.renderTasks();
-      
+
       // 5. 顯示成功畫面
       const successContent = `
             <div class="icon success"><i class="fas fa-sync-alt"></i></div>
@@ -376,9 +428,9 @@ class TaskManager {
             <p>您的待辦事項列表已和 Google Calendar 完全同步。</p>
         `;
       this.showResultModal(successContent);
-
     } catch (error) {
-      console.error('Error scheduling and syncing:', error);
+      console.error("Error scheduling tasks:", error);
+      // 嚴重錯誤，例如 API 連線失敗
       const errorContent = `
             <div class="icon warning"><i class="fas fa-times-circle" style="color: #dc3545;"></i></div>
             <h2>同步失敗</h2>
@@ -392,14 +444,14 @@ class TaskManager {
   }
 
   showLoader() {
-    this.loader.style.display = 'flex';
+    this.loader.style.display = "flex";
     setTimeout(() => this.loader.classList.add("show"), 10);
   }
 
   hideLoader() {
     this.loader.classList.remove("show");
     setTimeout(() => {
-        this.loader.style.display = 'none';
+      this.loader.style.display = "none";
     }, 300); // 配合 CSS 的 transition 時間
   }
 }
@@ -407,9 +459,4 @@ class TaskManager {
 // Initialize when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
   window.taskManager = new TaskManager();
-});
-
-//handle new task from main process
-window.ipcRenderer.onNewTask((taskData) => {
-  window.inlistedApp.showNotification("new task");
 });

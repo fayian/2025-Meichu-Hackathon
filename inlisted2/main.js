@@ -5,12 +5,14 @@ const Store = require("electron-store");
 
 let mainWindow;
 let wsServer;
+let websocket;
 let aiStore;
+let newTaskPopup;
 
 // Initialize WebSocket server
 function initializeWebSocketServer() {
   mainWindow.webContents.send("websocket-server-status", true);
-  wsServer = new Websocket.Server({ address: "", port: 7777 });
+  wsServer = new Websocket.Server({ port: 7777 });
   console.log("Starting WebSocket server...");
   wsServer.on("error", (err) => {
     console.error("Failed to start WebSocket server:", err);
@@ -18,6 +20,7 @@ function initializeWebSocketServer() {
   });
 
   wsServer.on("connection", (ws) => {
+    websocket = ws;
     ws.on("error", (err) => {
       console.error("WebSocket error:", err);
     });
@@ -33,20 +36,26 @@ function handleWebSocketMessage(rawMessage) {
     const message = JSON.parse(rawMessage.toString());
 
     //validate message
-    if (typeof message.command !== "string" || typeof message.data !== "object")
+    if (
+      typeof message.command !== "string" ||
+      typeof message.data !== "object"
+    ) {
+      console.warn("Invalid message format:", message);
       return;
+    }
 
     // Handle different commands
     switch (message.command) {
       case "new-task":
         mainWindow.webContents.send("new-task", message.data);
+        console.log("New task received:", message.data);
         break;
       default:
         console.log("Received unknown command:", message.command);
         break;
     }
   } catch (SyntaxError) {
-    console.error("Message in not JSON:", rawMessage);
+    console.warn("Message in not JSON:", rawMessage);
     return;
   }
 }
@@ -112,6 +121,11 @@ app.on("activate", () => {
   }
 });
 
+// IPC handlers
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
+});
+
 // IPC handlers for AI state persistence
 ipcMain.handle("save-ai-state", (event, state) => {
   try {
@@ -157,7 +171,102 @@ ipcMain.handle("clear-ai-state", () => {
   }
 });
 
-// IPC handlers
-ipcMain.handle("get-app-version", () => {
-  return app.getVersion();
+// IPC handlers for sending pomodoro status
+ipcMain.handle("pomodoro-start", (event, seconds) => {
+  websocket.send(
+    JSON.stringify({ command: "pomodoro-start", data: { seconds: seconds } })
+  );
 });
+
+ipcMain.handle("pomodoro-pause", () => {
+  websocket.send(JSON.stringify({ command: "pomodoro-pause", data: {} }));
+});
+
+ipcMain.handle("pomodoro-stop", () => {
+  websocket.send(JSON.stringify({ command: "pomodoro-stop", data: {} }));
+});
+
+ipcMain.handle("pomodoro-set-time", (event, seconds) => {
+  websocket.send(
+    JSON.stringify({ command: "pomodoro-set-time", data: { seconds: seconds } })
+  );
+});
+
+// Create new task popup window
+ipcMain.handle("create-new-task-popup", async (event, taskData = {}) => {
+  return createNewTaskPopup(taskData);
+});
+
+// Handle task submission from popup
+ipcMain.handle("submit-new-task", async (event, taskData) => {
+  // Send the task data to the main window
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("task-submitted", taskData);
+  }
+
+  // Close the popup
+  if (newTaskPopup && !newTaskPopup.isDestroyed()) {
+    newTaskPopup.close();
+  }
+
+  return { success: true };
+});
+
+function createNewTaskPopup(taskData = {}) {
+  // Close existing popup if it exists
+  if (newTaskPopup && !newTaskPopup.isDestroyed()) {
+    newTaskPopup.close();
+  }
+
+  newTaskPopup = new BrowserWindow({
+    width: 450,
+    height: 450,
+    resizable: false,
+    center: true,
+    frame: false,
+    focusable: true, // Ensure popup can receive focus
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+    show: false, // Don't show until ready
+  });
+
+  // Build URL with task data as query parameter
+  let popupUrl = `file://${path.join(__dirname, "templates", "new-task.html")}`;
+  if (taskData && Object.keys(taskData).length > 0) {
+    const encodedData = encodeURIComponent(JSON.stringify(taskData));
+    popupUrl += `?data=${encodedData}`;
+  }
+
+  // Load the HTML file
+  newTaskPopup.loadURL(popupUrl);
+
+  // Close popup when clicking outside or pressing Escape
+  newTaskPopup.on("blur", () => {
+    newTaskPopup.close();
+  });
+
+  // Handle window closed
+  newTaskPopup.on("closed", () => {
+    newTaskPopup = null;
+  });
+
+  newTaskPopup.on("focus", () => {
+    newTaskPopup.moveTop();
+    newTaskPopup.show();
+  });
+
+  // Show when ready
+  newTaskPopup.once("ready-to-show", () => {
+    setTimeout(() => {
+      newTaskPopup.show();
+      newTaskPopup.focus();
+    }, 100);
+  });
+
+  return { success: true, windowId: newTaskPopup.id };
+}

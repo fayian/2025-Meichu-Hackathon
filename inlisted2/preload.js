@@ -5,6 +5,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("ipcRenderer", {
   onNewTask: (callback) =>
     ipcRenderer.on("new-task", (event, data) => callback(data)),
+  onTaskSubmitted: (callback) =>
+    ipcRenderer.on("task-submitted", (event, data) => callback(data)),
   onWebsocketServerActive: (callback) =>
     ipcRenderer.on("websocket-server-active", (event, status) =>
       callback(status)
@@ -14,13 +16,22 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
 contextBridge.exposeInMainWorld("electronAPI", {
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
 
+  // Task management
+  createNewTaskPopup: (taskData) =>
+    ipcRenderer.invoke("create-new-task-popup", taskData),
+  submitNewTask: (taskData) => ipcRenderer.invoke("submit-new-task", taskData),
+
   // AI state persistence
   saveAIState: (state) => ipcRenderer.invoke("save-ai-state", state),
   loadAIState: () => ipcRenderer.invoke("load-ai-state"),
   clearAIState: () => ipcRenderer.invoke("clear-ai-state"),
 
-  // WebSocket Server Control APIs
-  websocket: {},
+  // pomodoro controls
+  startPomodoro: (seconds) => ipcRenderer.invoke("pomodoro-start", seconds),
+  pausePomodoro: () => ipcRenderer.invoke("pomodoro-pause"),
+  stopPomodoro: () => ipcRenderer.invoke("pomodoro-stop"),
+  setPomodoroTime: (seconds) =>
+    ipcRenderer.invoke("pomodoro-set-time", seconds),
 
   // Notification API for health reminders and pomodoro
   showNotification: (title, body) => {
