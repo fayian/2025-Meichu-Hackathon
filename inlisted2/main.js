@@ -1,8 +1,53 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, ipcMain } = require("electron");
+const path = require("path");
+const Websocket = require("ws");
 const Store = require('electron-store');
 
 let mainWindow;
+let wsServer;
+
+// Initialize WebSocket server
+function initializeWebSocketServer() {
+  mainWindow.webContents.send("websocket-server-status", true);
+  wsServer = new Websocket.Server({ port: 7777 });
+  wsServer.on("error", (err) => {
+    console.error("Failed to start WebSocket server:", err);
+    mainWindow.webContents.send("websocket-server-status", false);
+  });
+
+  wsServer.on("connection", (ws) => {
+    ws.on("error", (err) => {
+      console.error("WebSocket error:", err);
+    });
+    ws.on("message", (data) => {
+      handleWebSocketMessage(data);
+    });
+  });
+}
+// Handle Websocket Messages
+function handleWebSocketMessage(rawMessage) {
+  try {
+    const message = JSON.parse(rawMessage.toString());
+
+    //validate message
+    if (typeof message.command !== "string" || typeof message.data !== "object")
+      return;
+
+    // Handle different commands
+    switch (message.command) {
+      case "new-task":
+        mainWindow.webContents.send("new-task", message.data);
+        break;
+      default:
+        console.log("Received unknown command:", message.command);
+        break;
+    }
+  } catch (SyntaxError) {
+    console.error("Message in not JSON:", rawMessage);
+    return;
+  }
+}
+
 let aiStore;
 
 function createWindow() {
@@ -25,33 +70,42 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, "preload.js"),
     },
-    titleBarStyle: 'default',
-    icon: path.join(__dirname, 'assets/icon.png') // 可以後續添加圖標
+    titleBarStyle: "default",
+    icon: path.join(__dirname, "assets/icon.png"), // 可以後續添加圖標
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile("index.html");
 
   // 開發環境下打開開發者工具
-  if (process.argv.includes('--dev')) {
+  if (process.argv.includes("--dev")) {
     mainWindow.webContents.openDevTools();
   }
 
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 
-app.whenReady().then(createWindow);
+//Initialize the app
+app.whenReady().then(() => {
+  createWindow();
+  initializeWebSocketServer();
+});
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+app.on("window-all-closed", () => {
+  // Stop WebSocket server when app closes
+  if (wsServer) {
+    //TODO
+  }
+
+  if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
-app.on('activate', () => {
+app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
@@ -102,14 +156,52 @@ ipcMain.handle('clear-ai-state', () => {
   }
 });
 
-// IPC handlers for future WebSocket and Logi Action SDK integration
-ipcMain.handle('get-app-version', () => {
-  return app.getVersion();
+// IPC handlers for AI state persistence
+ipcMain.handle('save-ai-state', (event, state) => {
+  try {
+    if (aiStore) {
+      aiStore.set('banditState', state.bandit);
+      aiStore.set('fatigueState', state.fatigue);
+      aiStore.set('lastUpdated', state.lastUpdated);
+      return { success: true };
+    }
+    return { success: false, error: 'Store not initialized' };
+  } catch (error) {
+    console.error('Failed to save AI state:', error);
+    return { success: false, error: error.message };
+  }
 });
 
-// Placeholder for future WebSocket API integration
-ipcMain.handle('websocket-connect', async (event, config) => {
-  // TODO: Implement WebSocket connection for Logi Action SDK
-  console.log('WebSocket connection requested:', config);
-  return { success: true, message: 'WebSocket placeholder' };
+ipcMain.handle('load-ai-state', () => {
+  try {
+    if (aiStore) {
+      return {
+        bandit: aiStore.get('banditState'),
+        fatigue: aiStore.get('fatigueState'),
+        lastUpdated: aiStore.get('lastUpdated')
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to load AI state:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('clear-ai-state', () => {
+  try {
+    if (aiStore) {
+      aiStore.clear();
+      return { success: true };
+    }
+    return { success: false, error: 'Store not initialized' };
+  } catch (error) {
+    console.error('Failed to clear AI state:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handlers
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
 });
