@@ -32,41 +32,14 @@ namespace Loupedeck.InlistPlugin
         }
 
         // This method is called when the plugin is loaded.
-        public override void Load()
-        {
-            PluginLog.Info("Loading Inlist plugin...");
-
-            // Connect to WebSocket server
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _webSocketService.ConnectAsync();
-                }
-                catch (Exception ex)
-                {
-                    PluginLog.Error($"Failed to connect to WebSocket server during plugin load: {ex.Message}");
-                }
-            });
+        public override void Load() {
         }
 
         // This method is called when the plugin is unloaded.
-        public override void Unload()
-        {
-            PluginLog.Info("Unloading Inlist plugin...");
-
-            try
-            {
-                _webSocketService?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                PluginLog.Error($"Error disposing WebSocket service: {ex.Message}");
-            }
+        public override void Unload() {
         }
 
-        private void SetupWebSocketEventHandlers()
-        {
+        private void SetupWebSocketEventHandlers() {
             _webSocketService.Connected += (sender, e) => {
                 PluginLog.Info("WebSocket connected to server");
             };

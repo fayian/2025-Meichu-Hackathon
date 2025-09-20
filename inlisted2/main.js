@@ -10,7 +10,7 @@ let aiStore;
 // Initialize WebSocket server
 function initializeWebSocketServer() {
   mainWindow.webContents.send("websocket-server-status", true);
-  wsServer = new Websocket.Server({ address: "", port: 7777 });
+  wsServer = new Websocket.Server({ port: 7777 });
   console.log("Starting WebSocket server...");
   wsServer.on("error", (err) => {
     console.error("Failed to start WebSocket server:", err);
@@ -33,20 +33,26 @@ function handleWebSocketMessage(rawMessage) {
     const message = JSON.parse(rawMessage.toString());
 
     //validate message
-    if (typeof message.command !== "string" || typeof message.data !== "object")
+    if (
+      typeof message.command !== "string" ||
+      typeof message.data !== "object"
+    ) {
+      console.warn("Invalid message format:", message);
       return;
+    }
 
     // Handle different commands
     switch (message.command) {
       case "new-task":
         mainWindow.webContents.send("new-task", message.data);
+        console.log("New task received:", message.data);
         break;
       default:
         console.log("Received unknown command:", message.command);
         break;
     }
   } catch (SyntaxError) {
-    console.error("Message in not JSON:", rawMessage);
+    console.warn("Message in not JSON:", rawMessage);
     return;
   }
 }

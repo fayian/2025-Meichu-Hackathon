@@ -303,5 +303,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 //handle new task from main process
 window.ipcRenderer.onNewTask((taskData) => {
-  window.inlistedApp.showNotification("new task");
+  window.inlistedApp.showNotification("new task", "FUCK YEAH");
 });
