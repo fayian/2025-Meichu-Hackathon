@@ -6,7 +6,7 @@
 type: plugin4
 
 # Name that identifies the plugin.
-name: Inlisted
+name: Inlist
 
 # Plugin name that is shown to the user.
 displayName: Inlisted

@@ -39,6 +39,8 @@
             return "番茄鐘";
         }
 
+        protected override BitmapImage GetCommandImage(String actionParameter, PluginImageSize imageSize) =>
+            BitmapImage.FromResource(this.Plugin.Assembly, "Loupedeck.InlistPlugin.Actions.ShowPomodoroTimeCommand.svg");
 
         protected override void RunCommand(String actionParameter) {
             var plugin = this.Plugin as InlistPlugin;

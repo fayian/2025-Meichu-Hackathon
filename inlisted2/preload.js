@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
     ipcRenderer.on("websocket-server-active", (event, status) =>
       callback(status)
     ),
+  onPomodoroRequestSetTime: (callback) =>
+    ipcRenderer.on("pomodoro-request-set-time", (event, data) =>
+      callback(data)
+    ),
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {
