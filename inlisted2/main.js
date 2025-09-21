@@ -173,23 +173,30 @@ ipcMain.handle("clear-ai-state", () => {
 
 // IPC handlers for sending pomodoro status
 ipcMain.handle("pomodoro-start", (event, seconds) => {
-  websocket.send(
-    JSON.stringify({ command: "pomodoro-start", data: { seconds: seconds } })
-  );
+  if (websocket)
+    websocket.send(
+      JSON.stringify({ command: "pomodoro-start", data: { seconds: seconds } })
+    );
 });
 
 ipcMain.handle("pomodoro-pause", () => {
-  websocket.send(JSON.stringify({ command: "pomodoro-pause", data: {} }));
+  if (websocket)
+    websocket.send(JSON.stringify({ command: "pomodoro-pause", data: {} }));
 });
 
 ipcMain.handle("pomodoro-stop", () => {
-  websocket.send(JSON.stringify({ command: "pomodoro-stop", data: {} }));
+  if (websocket)
+    websocket.send(JSON.stringify({ command: "pomodoro-stop", data: {} }));
 });
 
 ipcMain.handle("pomodoro-set-time", (event, seconds) => {
-  websocket.send(
-    JSON.stringify({ command: "pomodoro-set-time", data: { seconds: seconds } })
-  );
+  if (websocket)
+    websocket.send(
+      JSON.stringify({
+        command: "pomodoro-set-time",
+        data: { seconds: seconds },
+      })
+    );
 });
 
 // Create new task popup window
