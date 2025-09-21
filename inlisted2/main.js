@@ -1,4 +1,11 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Tray,
+  Menu,
+  nativeImage,
+} = require("electron");
 const path = require("path");
 const Websocket = require("ws");
 const Store = require("electron-store");
@@ -9,6 +16,7 @@ let websocket;
 let aiStore;
 let newTaskPopup;
 let taskHudWindow;
+let tray;
 
 // Initialize WebSocket server
 function initializeWebSocketServer() {
@@ -112,9 +120,95 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   }
 
+  // Prevent window from closing, minimize to tray instead
+  mainWindow.on("close", (event) => {
+    if (!app.isQuiting) {
+      event.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+  });
+
   mainWindow.on("closed", () => {
-    taskHudWindow.close();
+    if (taskHudWindow && !taskHudWindow.isDestroyed()) {
+      taskHudWindow.close();
+    }
     mainWindow = null;
+  });
+
+  // Create system tray
+  createTray();
+}
+
+function createTray() {
+  // Create a simple tray icon (you can replace this with an actual icon file)
+  const trayIcon = nativeImage.createFromDataURL(
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+  );
+
+  tray = new Tray(trayIcon);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "顯示 Inlisted",
+      click: () => {
+        mainWindow.show();
+        mainWindow.focus();
+      },
+    },
+    {
+      label: "隱藏 Inlisted",
+      click: () => {
+        mainWindow.hide();
+      },
+    },
+    { type: "separator" },
+    {
+      label: "HUD 顯示/隱藏",
+      submenu: [
+        {
+          label: "顯示 HUD",
+          click: async () => {
+            try {
+              await showTaskHud();
+            } catch (error) {
+              console.error("Error showing HUD:", error);
+            }
+          },
+        },
+        {
+          label: "隱藏 HUD",
+          click: async () => {
+            try {
+              await hideTaskHud();
+            } catch (error) {
+              console.error("Error hiding HUD:", error);
+            }
+          },
+        },
+      ],
+    },
+    { type: "separator" },
+    {
+      label: "結束應用程式",
+      click: () => {
+        app.isQuiting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+  tray.setToolTip("Inlisted Smart Pomodoro Timer");
+
+  // Double click to show/hide window
+  tray.on("double-click", () => {
+    if (mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
   });
 }
 
@@ -130,15 +224,24 @@ app.on("window-all-closed", () => {
     //TODO
   }
 
+  // On macOS, don't quit when all windows are closed
   if (process.platform !== "darwin") {
-    app.quit();
+    // Don't quit the app, just hide it to tray
+    // app.quit();
   }
 });
 
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  } else if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
   }
+});
+
+app.on("before-quit", () => {
+  app.isQuiting = true;
 });
 
 // IPC handlers
