@@ -95,7 +95,7 @@ class DrinkStatusResponse(BaseModel):
     second: int
 
 class Task(BaseModel):
-    id: int
+    id: str
     name: str
     deadline: str
     priority: str
