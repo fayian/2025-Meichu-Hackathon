@@ -57,6 +57,18 @@ function handleWebSocketMessage(rawMessage) {
         console.log("Pomodoro toggle request received");
         mainWindow.webContents.send("pomodoro-request-toggle");
         break;
+      case "toggle-hud":
+        if (taskHudWindow && !taskHudWindow.isDestroyed()) {
+          if (taskHudWindow.isVisible()) {
+            taskHudWindow.hide();
+          } else {
+            taskHudWindow.show();
+          }
+        }
+        break;
+      case "complete-task":
+        mainWindow.webContents.send("complete-task", message.data);
+        break;
       default:
         console.log("Received unknown command:", message.command);
         break;
