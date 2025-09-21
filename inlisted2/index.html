@@ -264,12 +264,13 @@
                   <p>使用 AI 視覺檢測技術，每5秒監控您的坐姿，連續2次不良姿勢將發出警告 (10秒內)</p>
                 </div>
                 <div class="ai-controls">
-                  <button class="btn btn-success" id="startPostureDetectionBtn">
-                    <i class="fas fa-play"></i> 開始檢測
-                  </button>
-                  <button class="btn btn-danger" id="stopPostureDetectionBtn">
-                    <i class="fas fa-stop"></i> 停止檢測
-                  </button>
+                  <div class="toggle-control">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="postureDetectionToggle">
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">姿勢檢測</span>
+                  </div>
                 </div>
                 <div class="posture-result">
                   <span>目前姿勢狀態：</span>
@@ -297,12 +298,13 @@
                   />
                 </div>
                 <div class="ai-controls">
-                  <button class="btn btn-success" id="startWaterReminderBtn">
-                    <i class="fas fa-play"></i> 開始提醒
-                  </button>
-                  <button class="btn btn-danger" id="stopWaterReminderBtn">
-                    <i class="fas fa-stop"></i> 停止提醒
-                  </button>
+                  <div class="toggle-control">
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="waterReminderToggle">
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">喝水提醒</span>
+                  </div>
                 </div>
                 <div class="drink-result">
                   <span>上次喝水時間：</span>
