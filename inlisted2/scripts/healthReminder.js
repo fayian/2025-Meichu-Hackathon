@@ -42,22 +42,22 @@ class HealthReminder {
             this.addWater();
         });
 
-        // Posture detection buttons
-        document.getElementById('startPostureDetectionBtn')?.addEventListener('click', () => {
-            this.startPostureDetection();
+        // Posture detection toggle
+        document.getElementById('postureDetectionToggle')?.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                this.startPostureDetection();
+            } else {
+                this.stopPostureDetection();
+            }
         });
 
-        document.getElementById('stopPostureDetectionBtn')?.addEventListener('click', () => {
-            this.stopPostureDetection();
-        });
-
-        // Water reminder buttons  
-        document.getElementById('startWaterReminderBtn')?.addEventListener('click', () => {
-            this.startWaterReminder();
-        });
-
-        document.getElementById('stopWaterReminderBtn')?.addEventListener('click', () => {
-            this.stopWaterReminder();
+        // Water reminder toggle
+        document.getElementById('waterReminderToggle')?.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                this.startWaterReminder();
+            } else {
+                this.stopWaterReminder();
+            }
         });
 
         // Water reminder interval setting
@@ -75,6 +75,8 @@ class HealthReminder {
     async startPostureDetection() {
         if (!this.isPostureApiConnected) {
             this.showNotification('錯誤', 'API 未連線，無法啟動姿勢檢測');
+            // API未連線時重置開關狀態
+            document.getElementById('postureDetectionToggle').checked = false;
             return;
         }
 
@@ -106,6 +108,8 @@ class HealthReminder {
         } catch (error) {
             console.error('Error starting posture detection:', error);
             this.showNotification('錯誤', '無法啟動姿勢檢測');
+            // 錯誤時重置開關狀態
+            document.getElementById('postureDetectionToggle').checked = false;
         }
     }
 
@@ -149,6 +153,8 @@ class HealthReminder {
     async startWaterReminder() {
         if (!this.isPostureApiConnected) {
             this.showNotification('錯誤', 'API 未連線，無法啟動喝水提醒');
+            // API未連線時重置開關狀態
+            document.getElementById('waterReminderToggle').checked = false;
             return;
         }
 
@@ -178,6 +184,8 @@ class HealthReminder {
         } catch (error) {
             console.error('Error starting water reminder:', error);
             this.showNotification('錯誤', '無法啟動喝水提醒');
+            // 錯誤時重置開關狀態
+            document.getElementById('waterReminderToggle').checked = false;
         }
     }
 
