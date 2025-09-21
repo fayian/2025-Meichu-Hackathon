@@ -38,6 +38,7 @@ class TaskManager {
     this.setupEventListeners();
     this.renderTasks();
     this.setupIpcListeners();
+    this.updateTaskHud(); // Initialize HUD with current tasks
   }
 
   setupIpcListeners() {
@@ -71,6 +72,7 @@ class TaskManager {
     this.tasks.push(taskData);
     this.saveTasks();
     this.renderTasks();
+    this.updateTaskHud(); // Update HUD when task is added
 
     // Show success notification
     window.inlistedApp.showNotification(
@@ -192,6 +194,7 @@ class TaskManager {
       this.tasks = this.tasks.filter((task) => task.id !== taskId);
       this.saveTasks();
       this.renderTasks();
+      this.updateTaskHud(); // Update HUD when task is deleted
       window.inlistedApp.showNotification("任務已刪除", "任務已成功刪除");
     }
   }
@@ -203,6 +206,7 @@ class TaskManager {
       task.completedAt = task.completed ? new Date().toISOString() : null;
       this.saveTasks();
       this.renderTasks();
+      this.updateTaskHud(); // Update HUD when task is completed/reopened
 
       const status = task.completed ? "完成" : "重新開啟";
       window.inlistedApp.showNotification(
@@ -713,6 +717,7 @@ class TaskManager {
       // 4. 保存並重新渲染
       this.saveTasks();
       this.renderTasks();
+      this.updateTaskHud(); // Update HUD after scheduling
 
       // 5. 顯示成功畫面
       const successContent = `
@@ -746,6 +751,66 @@ class TaskManager {
     setTimeout(() => {
       this.loader.style.display = "none";
     }, 300); // 配合 CSS 的 transition 時間
+  }
+
+  // HUD Management Methods
+  getFirstTask() {
+    // Get the first incomplete task, sorted by priority and deadline
+    const incompleteTasks = this.tasks.filter((task) => !task.completed);
+    if (incompleteTasks.length === 0) return null;
+
+    // Sort by urgency (priority and deadline)
+    const sortedTasks = incompleteTasks.sort((a, b) => {
+      const urgencyA = window.inlistedApp.calculateUrgency(
+        a.deadline,
+        a.priority
+      );
+      const urgencyB = window.inlistedApp.calculateUrgency(
+        b.deadline,
+        b.priority
+      );
+      return urgencyB - urgencyA;
+    });
+
+    return sortedTasks[0];
+  }
+
+  async updateTaskHud() {
+    try {
+      const firstTask = this.getFirstTask();
+
+      if (!firstTask) {
+        timeLeft = -1;
+      }
+
+      const hudData = {
+        name: firstTask.name,
+        deadline: new Date(firstTask.deadline),
+        priority: firstTask.priority,
+      };
+
+      // Create or update HUD
+      await window.electronAPI.updateTaskHud(hudData);
+    } catch (error) {
+      console.error("Error updating task HUD:", error);
+    }
+  }
+
+  async hideTaskHud() {
+    try {
+      await window.electronAPI.hideTaskHud();
+    } catch (error) {
+      console.error("Error hiding task HUD:", error);
+    }
+  }
+
+  async showTaskHud() {
+    try {
+      await window.electronAPI.showTaskHud();
+      this.updateTaskHud(); // Refresh HUD content when showing
+    } catch (error) {
+      console.error("Error showing task HUD:", error);
+    }
   }
 }
 
