@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
     ),
   onPomodoroRequestToggle: (callback) =>
     ipcRenderer.on("pomodoro-request-toggle", () => callback()),
+  onUpdateHudData: (callback) =>
+    ipcRenderer.on("update-hud-data", (event, data) => callback(data)),
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -26,6 +28,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   createNewTaskPopup: (taskData) =>
     ipcRenderer.invoke("create-new-task-popup", taskData),
   submitNewTask: (taskData) => ipcRenderer.invoke("submit-new-task", taskData),
+
+  // Task HUD management
+  updateTaskHud: (taskData) => ipcRenderer.invoke("update-task-hud", taskData),
+  hideTaskHud: () => ipcRenderer.invoke("hide-task-hud"),
+  showTaskHud: () => ipcRenderer.invoke("show-task-hud"),
 
   // AI state persistence
   saveAIState: (state) => ipcRenderer.invoke("save-ai-state", state),

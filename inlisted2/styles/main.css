@@ -1850,3 +1850,157 @@ input:checked + .slider:before {
     color: var(--text-primary);
     user-select: none;
 }
+
+/* Task Recommendation Styles */
+.recommendation-content {
+    text-align: center;
+    padding: 2rem;
+}
+
+.recommendation-content .icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+}
+
+.recommendation-content .icon.recommendation {
+    color: #f39c12;
+}
+
+.recommendation-content .icon.success {
+    color: #27ae60;
+}
+
+.recommendation-content h3 {
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.recommended-task {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border-left: 4px solid #f39c12;
+}
+
+.reasons {
+    margin: 1.5rem 0;
+    text-align: left;
+}
+
+.reasons h4 {
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.reasons-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.reason-tag {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.alternatives-section {
+    margin: 1.5rem 0;
+    text-align: left;
+}
+
+.alternatives-section h4 {
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.alternative-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.alternative-task {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.alternative-task:hover {
+    background: var(--bg-tertiary);
+    border-color: #667eea;
+    transform: translateY(-1px);
+}
+
+.alternative-task .task-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.alternative-task .task-score {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    background: var(--bg-tertiary);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+}
+
+.recommendation-content .actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.recommendation-content.no-tasks {
+    padding: 3rem 2rem;
+}
+
+.recommendation-content.no-tasks p {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+}
+
+/* Task highlighting animation */
+.task-item.highlighted {
+    animation: highlightPulse 2s ease-in-out;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border-color: #f39c12;
+    transform: scale(1.02);
+}
+
+@keyframes highlightPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(243, 156, 18, 0);
+    }
+}
+
+/* Warning button styles for #TODO */
+.btn-warning {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}

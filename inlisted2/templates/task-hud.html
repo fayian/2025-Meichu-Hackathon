@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task HUD</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, "Microsoft JhengHei", sans-serif;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        background: transparent;
+        overflow: hidden;
+      }
+
+      .hud-container {
+        background: var(--priority-color, rgba(245, 158, 11, 0.9));
+        border-radius: 12px;
+        padding: 12px 16px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .task-name {
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .countdown {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 12px;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      }
+
+      .priority-indicator {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hud-container">
+      <div class="priority-indicator"></div>
+      <div class="task-name" id="taskName">No active task</div>
+      <div class="countdown" id="countdown">Loading...</div>
+    </div>
+
+    <script>
+      // Priority color mapping
+      const priorityColors = {
+        high: "rgba(239, 68, 68, 0.9)", // Red
+        medium: "rgba(245, 158, 11, 0.9)", // Orange
+        low: "rgba(34, 197, 94, 0.9)", // Green
+      };
+
+      // Initialize task data from URL parameters
+      let taskDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000); // Default: 24 hours from now
+      let taskName = "No active task";
+      let taskPriority = "medium";
+
+      // Parse URL parameters if available
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("data")) {
+        try {
+          const taskData = JSON.parse(
+            decodeURIComponent(urlParams.get("data"))
+          );
+
+          if (taskData.deadline) taskDeadline = new Date(taskData.deadline);
+          if (taskData.name) taskName = taskData.name;
+          if (taskData.priority) taskPriority = taskData.priority;
+
+          // Update initial display
+          document.getElementById("taskName").textContent = taskName;
+
+          // Set initial priority color
+          const hudContainer = document.querySelector(".hud-container");
+          hudContainer.style.background = priorityColors[taskPriority];
+        } catch (error) {
+          console.error("Error parsing task data:", error);
+        }
+      }
+
+      function updateCountdown() {
+        const now = new Date();
+        const timeDiff = taskDeadline - now;
+
+        if (timeDiff <= 0) {
+          document.getElementById("countdown").textContent = "已逾期";
+          return;
+        }
+
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor(
+          (timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        );
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+        let countdownText = "";
+        if (days > 0) {
+          countdownText = days + "天 " + hours + "時 " + minutes + "分";
+        } else if (hours > 0) {
+          countdownText = hours + "時 " + minutes + "分 " + seconds + "秒";
+        } else if (minutes > 0) {
+          countdownText = minutes + "分 " + seconds + "秒";
+        } else {
+          countdownText = seconds + "秒";
+        }
+
+        document.getElementById("countdown").textContent =
+          "剩餘: " + countdownText;
+      }
+
+      // Update countdown immediately and then every second
+      updateCountdown();
+      const countdownInterval = setInterval(updateCountdown, 1000);
+
+      // Listen for updates from main process
+      window.ipcRenderer.onUpdateHudData((newTaskData) => {
+        // Update task name
+        if (newTaskData.name) {
+          taskName = newTaskData.name;
+          document.getElementById("taskName").textContent = taskName;
+        }
+
+        // Update deadline
+        if (newTaskData.deadline) {
+          taskDeadline = new Date(newTaskData.deadline);
+          updateCountdown();
+        }
+
+        // Update priority and background color
+        if (newTaskData.priority) {
+          taskPriority = newTaskData.priority;
+          const hudContainer = document.querySelector(".hud-container");
+          hudContainer.style.background = priorityColors[taskPriority];
+        }
+      });
+
+      // Clean up interval when window is closed
+      window.addEventListener("beforeunload", () => {
+        if (countdownInterval) {
+          clearInterval(countdownInterval);
+        }
+      });
+    </script>
+  </body>
+</html>
