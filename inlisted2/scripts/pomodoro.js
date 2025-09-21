@@ -17,6 +17,7 @@ class PomodoroTimer {
 
   init() {
     this.setupEventListeners();
+    this.setupIpcListeners();
     this.updateDisplay();
     this.updateFeedbackUI();
   }
@@ -117,10 +118,26 @@ class PomodoroTimer {
     }
   }
 
-  setTime(minutes) {
+  setupIpcListeners() {
+    window.ipcRenderer.onPomodoroRequestSetTime((data) => {
+      this.setTime(data.minutes, false);
+    });
+
+    window.ipcRenderer.onPomodoroRequestToggle(() => {
+      if (this.isRunning) {
+        this.pauseTimer();
+      } else {
+        this.startTimer();
+      }
+    });
+  }
+
+  setTime(minutes, doConfirm = true) {
     if (this.isRunning) {
-      const confirmChange = confirm("計時器正在運行中，是否要設定新的時間？");
-      if (!confirmChange) return;
+      if (doConfirm) {
+        const confirmChange = confirm("計時器正在運行中，是否要設定新的時間？");
+        if (!confirmChange) return;
+      }
       this.stopTimer();
     }
 

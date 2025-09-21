@@ -39,6 +39,8 @@
             return "番茄鐘";
         }
 
+        protected override BitmapImage GetCommandImage(String actionParameter, PluginImageSize imageSize) =>
+            BitmapImage.FromResource(this.Plugin.Assembly, "Loupedeck.InlistPlugin.Actions.ShowPomodoroTimeCommand.svg");
 
         protected override void RunCommand(String actionParameter) {
             var plugin = this.Plugin as InlistPlugin;
@@ -53,7 +55,24 @@
                     }
                 });
             }
-            // TODO: 當按下按鈕時，切換暫停/繼續或開始新的計時
+            // 當按下按鈕時，切換暫停/繼續或開始新的計時
+            if (plugin?.WebSocketService?.IsConnected == true) {
+                _ = Task.Run(async () => {
+                    try {
+                        var commandData = new {
+                            command = "pomodoro-request-toggle",
+                            data = new { }
+                        };
+
+                        await plugin.SendJsonToServerAsync(commandData);
+                        PluginLog.Info("Sent pomodoro-request-toggle command to server");
+                    } catch (Exception ex) {
+                        PluginLog.Error($"Failed to send pomodoro-request-toggle command: {ex.Message}");
+                    }
+                });
+            } else {
+                PluginLog.Warning("WebSocket not connected, pomodoro-request-toggle command not sent");
+            }
         }
 
         private void OnTimerElapsed(object sender, ElapsedEventArgs e) {

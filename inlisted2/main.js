@@ -48,7 +48,13 @@ function handleWebSocketMessage(rawMessage) {
     switch (message.command) {
       case "new-task":
         mainWindow.webContents.send("new-task", message.data);
-        console.log("New task received:", message.data);
+        break;
+      case "pomodoro-request-set-time":
+        mainWindow.webContents.send("pomodoro-request-set-time", message.data);
+        break;
+      case "pomodoro-request-toggle":
+        console.log("Pomodoro toggle request received");
+        mainWindow.webContents.send("pomodoro-request-toggle");
         break;
       default:
         console.log("Received unknown command:", message.command);
@@ -173,23 +179,30 @@ ipcMain.handle("clear-ai-state", () => {
 
 // IPC handlers for sending pomodoro status
 ipcMain.handle("pomodoro-start", (event, seconds) => {
-  websocket.send(
-    JSON.stringify({ command: "pomodoro-start", data: { seconds: seconds } })
-  );
+  if (websocket)
+    websocket.send(
+      JSON.stringify({ command: "pomodoro-start", data: { seconds: seconds } })
+    );
 });
 
 ipcMain.handle("pomodoro-pause", () => {
-  websocket.send(JSON.stringify({ command: "pomodoro-pause", data: {} }));
+  if (websocket)
+    websocket.send(JSON.stringify({ command: "pomodoro-pause", data: {} }));
 });
 
 ipcMain.handle("pomodoro-stop", () => {
-  websocket.send(JSON.stringify({ command: "pomodoro-stop", data: {} }));
+  if (websocket)
+    websocket.send(JSON.stringify({ command: "pomodoro-stop", data: {} }));
 });
 
 ipcMain.handle("pomodoro-set-time", (event, seconds) => {
-  websocket.send(
-    JSON.stringify({ command: "pomodoro-set-time", data: { seconds: seconds } })
-  );
+  if (websocket)
+    websocket.send(
+      JSON.stringify({
+        command: "pomodoro-set-time",
+        data: { seconds: seconds },
+      })
+    );
 });
 
 // Create new task popup window
