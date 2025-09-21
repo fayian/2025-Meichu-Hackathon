@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
     ipcRenderer.on("pomodoro-request-set-time", (event, data) =>
       callback(data)
     ),
+  onPomodoroRequestToggle: (callback) =>
+    ipcRenderer.on("pomodoro-request-toggle", () => callback()),
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {

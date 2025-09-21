@@ -50,8 +50,11 @@ function handleWebSocketMessage(rawMessage) {
         mainWindow.webContents.send("new-task", message.data);
         break;
       case "pomodoro-request-set-time":
-        console.log("Pomodoro time set request received:", message.data);
         mainWindow.webContents.send("pomodoro-request-set-time", message.data);
+        break;
+      case "pomodoro-request-toggle":
+        console.log("Pomodoro toggle request received");
+        mainWindow.webContents.send("pomodoro-request-toggle");
         break;
       default:
         console.log("Received unknown command:", message.command);

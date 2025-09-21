@@ -122,6 +122,14 @@ class PomodoroTimer {
     window.ipcRenderer.onPomodoroRequestSetTime((data) => {
       this.setTime(data.minutes, false);
     });
+
+    window.ipcRenderer.onPomodoroRequestToggle(() => {
+      if (this.isRunning) {
+        this.pauseTimer();
+      } else {
+        this.startTimer();
+      }
+    });
   }
 
   setTime(minutes, doConfirm = true) {
