@@ -8,6 +8,7 @@ let wsServer;
 let websocket;
 let aiStore;
 let newTaskPopup;
+let taskHudWindow;
 
 // Initialize WebSocket server
 function initializeWebSocketServer() {
@@ -100,6 +101,7 @@ function createWindow() {
   }
 
   mainWindow.on("closed", () => {
+    taskHudWindow.close();
     mainWindow = null;
   });
 }
@@ -225,6 +227,20 @@ ipcMain.handle("submit-new-task", async (event, taskData) => {
   return { success: true };
 });
 
+// HUD window management
+
+ipcMain.handle("update-task-hud", async (event, taskData) => {
+  return updateTaskHud(taskData);
+});
+
+ipcMain.handle("hide-task-hud", async () => {
+  return hideTaskHud();
+});
+
+ipcMain.handle("show-task-hud", async () => {
+  return showTaskHud();
+});
+
 function createNewTaskPopup(taskData = {}) {
   // Close existing popup if it exists
   if (newTaskPopup && !newTaskPopup.isDestroyed()) {
@@ -282,4 +298,78 @@ function createNewTaskPopup(taskData = {}) {
   });
 
   return { success: true, windowId: newTaskPopup.id };
+}
+
+// HUD Window Management Functions
+function createTaskHud(taskData) {
+  taskHudWindow = new BrowserWindow({
+    width: 300,
+    height: 80,
+    x: 20, // Top left corner
+    y: 20,
+    frame: false,
+    alwaysOnTop: true,
+    focusable: false, // Non-focusable
+    skipTaskbar: true,
+    transparent: true, // Transparent background
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      enableRemoteModule: false,
+      preload: path.join(__dirname, "preload.js"),
+    },
+    show: false,
+  });
+
+  // Build URL with task data as query parameter
+  let hudUrl = `file://${path.join(__dirname, "templates", "task-hud.html")}`;
+  if (taskData && Object.keys(taskData).length > 0) {
+    const encodedData = encodeURIComponent(JSON.stringify(taskData));
+    hudUrl += `?data=${encodedData}`;
+  }
+
+  // Load the HTML file
+  taskHudWindow.loadURL(hudUrl);
+
+  // Show when ready
+  taskHudWindow.once("ready-to-show", () => {
+    taskHudWindow.show();
+  });
+
+  // Handle window closed
+  taskHudWindow.on("closed", () => {
+    taskHudWindow = null;
+  });
+
+  return { success: true, windowId: taskHudWindow.id };
+}
+
+function updateTaskHud(taskData) {
+  if (taskHudWindow && !taskHudWindow.isDestroyed()) {
+    // Send update data to HUD window
+    taskHudWindow.webContents.send("update-hud-data", taskData);
+    return { success: true };
+  } else {
+    // Create new HUD if it doesn't exist
+    return createTaskHud(taskData);
+  }
+}
+
+function hideTaskHud() {
+  if (taskHudWindow && !taskHudWindow.isDestroyed()) {
+    taskHudWindow.hide();
+    return { success: true };
+  }
+  return { success: false, message: "HUD not found" };
+}
+
+function showTaskHud() {
+  if (taskHudWindow && !taskHudWindow.isDestroyed()) {
+    taskHudWindow.show();
+    return { success: true };
+  }
+  return { success: false, message: "HUD not found" };
 }
