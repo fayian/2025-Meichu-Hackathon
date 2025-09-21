@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld("ipcRenderer", {
     ipcRenderer.on("pomodoro-request-toggle", () => callback()),
   onUpdateHudData: (callback) =>
     ipcRenderer.on("update-hud-data", (event, data) => callback(data)),
+  onCompleteTask: (callback) =>
+    ipcRenderer.on("complete-task", () => callback()),
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {
