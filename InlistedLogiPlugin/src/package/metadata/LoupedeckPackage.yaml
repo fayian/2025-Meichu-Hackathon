@@ -15,16 +15,16 @@ displayName: Inlisted
 description: Shortcut actions for the Inlisted app.
 
 # Name of the plugin library file.
-pluginFileName: InlistPlugin.dll
+pluginFileName: InlistedPlugin.dll
 
 # Plugin version.
 version: 1.0
 
 # Author of the plugin. The author can be a company or an individual developer.
-author: ianle
+author: \#TODO
 
 # Copyright information.
-copyright: Copyright © 2025 ianle. All rights reserved.
+copyright: Copyright © 2025 \#TODO. All rights reserved.
 
 
 # ==================================================================================================

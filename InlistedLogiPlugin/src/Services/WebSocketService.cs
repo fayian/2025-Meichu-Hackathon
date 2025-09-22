@@ -1,10 +1,12 @@
-namespace Loupedeck.InlistPlugin.Services
+namespace Loupedeck.InlistedPlugin.Services
 {
     using System;
     using System.Net.WebSockets;
     using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
+
+    using Loupedeck.InlistedPlugin.Helpers;
 
     public class WebSocketService : IDisposable {
         private ClientWebSocket _webSocket;

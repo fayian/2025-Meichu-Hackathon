@@ -1,14 +1,15 @@
-namespace Loupedeck.InlistPlugin
+namespace Loupedeck.InlistedPlugin
 {
     using System;
     using System.Threading.Tasks;
     using System.Text.Json;
-    using Loupedeck.InlistPlugin.Services;
-    using Loupedeck.InlistPlugin.Actions;
+    using Loupedeck.InlistedPlugin.Helpers;
+    using Loupedeck.InlistedPlugin.Actions;
+    using Loupedeck.InlistedPlugin.Services;
 
     // This class contains the plugin-level logic of the Loupedeck plugin.
 
-    public class InlistPlugin : Plugin {
+    public class InlistedPlugin : Plugin {
         private WebSocketService _webSocketService;
 
         // Gets a value indicating whether this is an API-only plugin.
@@ -21,7 +22,7 @@ namespace Loupedeck.InlistPlugin
         public WebSocketService WebSocketService => _webSocketService;
 
         // Initializes a new instance of the plugin class.
-        public InlistPlugin() {
+        public InlistedPlugin() {
             // Initialize the plugin log.
             PluginLog.Init(this.Log);
 

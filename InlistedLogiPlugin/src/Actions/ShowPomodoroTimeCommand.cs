@@ -1,4 +1,5 @@
-﻿namespace Loupedeck.InlistPlugin.Actions {
+﻿namespace Loupedeck.InlistedPlugin.Actions
+{
     using System;
     using System.Collections.Generic;
     using System.Linq;
@@ -6,6 +7,9 @@
     using System.Threading.Tasks;
     using System.Timers;
     using System.Text.Json;
+    using Loupedeck.InlistedPlugin;
+    using Loupedeck;
+    using Loupedeck.InlistedPlugin.Helpers;
 
     public class ShowPomodoroTimeCommand : PluginDynamicCommand { 
         private Timer _pomodoroTimer;
@@ -31,9 +35,9 @@
         protected override String GetCommandDisplayName(String actionParameter, PluginImageSize imageSize) {
             if (_isActive) {
                 if (_isPaused) {
-                    return $"⏸️ {(_remainingSeconds/60):D2}:{(_remainingSeconds%60):D2}";
+                    return $"⏸️ {_remainingSeconds/60:D2}:{_remainingSeconds%60:D2}";
                 } else {
-                    return $"{(_remainingSeconds / 60):D2}:{(_remainingSeconds % 60):D2}";
+                    return $"{_remainingSeconds / 60:D2}:{_remainingSeconds % 60:D2}";
                 }
             }
             return "番茄鐘";
@@ -43,7 +47,7 @@
             BitmapImage.FromResource(this.Plugin.Assembly, "Loupedeck.InlistPlugin.Actions.ShowPomodoroTimeCommand.svg");
 
         protected override void RunCommand(String actionParameter) {
-            var plugin = this.Plugin as InlistPlugin;
+            var plugin = this.Plugin as InlistedPlugin;
             if (plugin?.WebSocketService?.IsConnected == false) {
                 PluginLog.Info("WebSocket not connected, attempting to connect...");
                 _ = Task.Run(async () => {

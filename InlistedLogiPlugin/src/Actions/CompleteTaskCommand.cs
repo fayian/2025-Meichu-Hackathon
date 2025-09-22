@@ -1,23 +1,22 @@
-namespace Loupedeck.InlistPlugin.Actions {
+namespace Loupedeck.InlistedPlugin.Actions
+{
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
     using System.Threading.Tasks;
 
-    using Loupedeck.InlistPlugin.Services;
+    using Loupedeck.InlistedPlugin;
+    using Loupedeck.InlistedPlugin.Helpers;
 
-    public class ToggleHudCommand : PluginDynamicCommand {
+    public class CompleteTaskCommand : PluginDynamicCommand {
         // Initializes the command class.
-        public ToggleHudCommand()
-            : base(displayName: "顯示/隱藏 HUD", description: "切換HUD顯示狀態", groupName: "Inlisted") {
+        public CompleteTaskCommand()
+            : base(displayName: "完成任務", description: "標記當前任務為已完成", groupName: "Inlisted") {
         }
 
         protected override void RunCommand(String actionParameter) {
-            // Send toggle-hud command to WebSocket server
+            // Send complete-task command to WebSocket server
             _ = Task.Run(async () => {
                 try {
-                    var plugin = this.Plugin as InlistPlugin;
+                    var plugin = this.Plugin as InlistedPlugin;
                     if(plugin?.WebSocketService?.IsConnected == false) {
                         PluginLog.Info("WebSocket not connected, attempting to connect...");
                         _ = Task.Run(async () => {
@@ -31,17 +30,17 @@ namespace Loupedeck.InlistPlugin.Actions {
                     }
                     if (plugin?.WebSocketService?.IsConnected == true) {
                         var commandData = new {
-                            command = "toggle-hud",
+                            command = "complete-task",
                             data = new { }
                         };
 
                         await plugin.SendJsonToServerAsync(commandData);
-                        PluginLog.Info("Sent toggle-hud command to server");
+                        PluginLog.Info("Sent complete-task command to server");
                     } else {
-                        PluginLog.Warning("WebSocket not connected, toggle-hud command not sent");
+                        PluginLog.Warning("WebSocket not connected, complete-task command not sent");
                     }
                 } catch (Exception ex) {
-                    PluginLog.Error($"Failed to send toggle-hud command: {ex.Message}");
+                    PluginLog.Error($"Failed to send complete-task command: {ex.Message}");
                 }
             });
         }

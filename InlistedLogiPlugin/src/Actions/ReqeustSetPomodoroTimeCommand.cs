@@ -1,9 +1,11 @@
-﻿namespace Loupedeck.InlistPlugin.Actions {
+﻿namespace Loupedeck.InlistedPlugin.Actions
+{
     using System;
     using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
     using System.Threading.Tasks;
+
+    using Loupedeck.InlistedPlugin;
+    using Loupedeck.InlistedPlugin.Helpers;
 
     public class ReqeustSetPomodoroTimeCommand : PluginDynamicFolder {
         private readonly int[] _timeOptions = { 15, 20, 25, 30, 40, 50 };
@@ -15,7 +17,7 @@
         }
         public override IEnumerable<String> GetButtonPressActionNames(DeviceType deviceType) {
             //placeholer
-            for(int i = 0; i < 2; i++) {
+            for(var i = 0; i < 2; i++) {
                 yield return this.CreateCommandName("");
             }
 
@@ -26,7 +28,7 @@
 
         public override void RunCommand(String actionParamenter) {
             try {
-                if (int.TryParse(actionParamenter.Substring(0, 2), out int minutes)) {
+                if (int.TryParse(actionParamenter.Substring(0, 2), out var minutes)) {
                     SendSetTimeCommand(minutes);
                     this.Close();
                 } else {
@@ -40,7 +42,7 @@
 
         private async void SendSetTimeCommand(int minutes) {
             try {
-                var plugin = this.Plugin as InlistPlugin;
+                var plugin = this.Plugin as InlistedPlugin;
                 
                 // 檢查 WebSocket 連線狀態
                 if (plugin?.WebSocketService?.IsConnected == false) {
@@ -58,7 +60,7 @@
                 if (plugin?.WebSocketService?.IsConnected == true) {
                     var commandData = new {
                         command = "pomodoro-request-set-time",
-                        data = new { minutes = minutes }
+                        data = new { minutes }
                     };
 
                     await plugin.SendJsonToServerAsync(commandData);

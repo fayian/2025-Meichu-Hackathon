@@ -1,12 +1,12 @@
-namespace Loupedeck.InlistPlugin
+namespace Loupedeck.InlistedPlugin
 {
     using System;
 
     // This class can be used to connect the Loupedeck plugin to an application.
 
-    public class InlistApplication : ClientApplication
+    public class InlistedApplication : ClientApplication
     {
-        public InlistApplication()
+        public InlistedApplication()
         {
         }
 

@@ -1,9 +1,7 @@
-namespace Loupedeck.InlistPlugin.Actions {
+namespace Loupedeck.InlistedPlugin.Actions
+{
     using System;
     using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
 
     public class RequestSetPomodoroAICommand : PluginDynamicFolder {
         private readonly string[] _aiOptions = { "", "", "良好", "一般", "疲憊", "太短", "剛好", "太長" };

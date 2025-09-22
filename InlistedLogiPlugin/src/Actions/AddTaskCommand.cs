@@ -1,23 +1,21 @@
-namespace Loupedeck.InlistPlugin.Actions {
+ï»¿namespace Loupedeck.InlistedPlugin.Actions
+{
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
     using System.Threading.Tasks;
 
-    using Loupedeck.InlistPlugin.Services;
-
-    public class CompleteTaskCommand : PluginDynamicCommand {
+    using Loupedeck.InlistedPlugin;
+    using Loupedeck.InlistedPlugin.Helpers;
+    public class AddTaskCommand : PluginDynamicCommand {
         // Initializes the command class.
-        public CompleteTaskCommand()
-            : base(displayName: "§¹¦¨¥ô°È", description: "¼Ð°O·í«e¥ô°È¬°¤w§¹¦¨", groupName: "Inlisted") {
+        public AddTaskCommand()
+            : base(displayName: "æ–°å¢žä»»å‹™", description: "å¿«é€Ÿåœ¨ä»»å‹™æ¸…å–®ä¸­æ–°å¢žä»»å‹™", groupName: "Inlisted") {
         }
 
         protected override void RunCommand(String actionParameter) {
-            // Send complete-task command to WebSocket server
+            // Send new-task command to WebSocket server
             _ = Task.Run(async () => {
                 try {
-                    var plugin = this.Plugin as InlistPlugin;
+                    var plugin = this.Plugin as InlistedPlugin;
                     if(plugin?.WebSocketService?.IsConnected == false) {
                         PluginLog.Info("WebSocket not connected, attempting to connect...");
                         _ = Task.Run(async () => {
@@ -31,17 +29,17 @@ namespace Loupedeck.InlistPlugin.Actions {
                     }
                     if (plugin?.WebSocketService?.IsConnected == true) {
                         var commandData = new {
-                            command = "complete-task",
+                            command = "new-task",
                             data = new { }
                         };
 
                         await plugin.SendJsonToServerAsync(commandData);
-                        PluginLog.Info("Sent complete-task command to server");
+                        PluginLog.Info("Sent new-task command to server");
                     } else {
-                        PluginLog.Warning("WebSocket not connected, complete-task command not sent");
+                        PluginLog.Warning("WebSocket not connected, new-task command not sent");
                     }
                 } catch (Exception ex) {
-                    PluginLog.Error($"Failed to send complete-task command: {ex.Message}");
+                    PluginLog.Error($"Failed to send new-task command: {ex.Message}");
                 }
             });
         }

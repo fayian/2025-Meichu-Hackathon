@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <RootNamespace>Loupedeck.InlistPlugin</RootNamespace>
+    <RootNamespace>Loupedeck.InlistedPlugin</RootNamespace>
 
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
